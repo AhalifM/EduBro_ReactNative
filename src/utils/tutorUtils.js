@@ -16,6 +16,7 @@ import {
   serverTimestamp,
   orderBy
 } from 'firebase/firestore';
+import { sendSessionNotification } from './notificationUtils';
 
 // Get all subjects from the database
 export const getAllSubjects = async () => {
@@ -439,8 +440,8 @@ export const bookSession = async (sessionData) => {
       tutorName: tutorName || '',
       studentName: studentName || '',
       tutorPhoneNumber: tutorPhoneNumber || '',
-      status: 'confirmed', // pending, confirmed, completed, cancelled
-      paymentStatus: 'pending', // pending, paid, refunded
+      status: 'pending', // pending, confirmed, completed, cancelled
+      paymentStatus: 'paid', // pending, paid, refunded
       paymentId: null,
       createdAt: new Date().toISOString()
     });
@@ -463,6 +464,9 @@ export const bookSession = async (sessionData) => {
       slots: updatedSlots,
       updatedAt: new Date().toISOString()
     });
+    
+    // Send notification to tutor
+    await sendSessionNotification(sessionId, 'pending');
     
     return { success: true, sessionId };
   } catch (error) {
@@ -548,14 +552,27 @@ export const cancelSession = async (sessionId, userId) => {
 };
 
 // Get sessions for a user (student or tutor)
-export const getUserSessions = async (userId, role) => {
+export const getUserSessions = async (userId, role, status) => {
   try {
     const sessionsRef = collection(db, 'sessions');
-    // Temporarily remove orderBy until index is created
-    const q = query(
-      sessionsRef,
-      where(role === 'tutor' ? 'tutorId' : 'studentId', '==', userId)
-    );
+    
+    // Build the query based on parameters
+    let q;
+    
+    if (status) {
+      // Filter by role and status
+      q = query(
+        sessionsRef,
+        where(role === 'tutor' ? 'tutorId' : 'studentId', '==', userId),
+        where('status', '==', status)
+      );
+    } else {
+      // Filter by role only
+      q = query(
+        sessionsRef,
+        where(role === 'tutor' ? 'tutorId' : 'studentId', '==', userId)
+      );
+    }
 
     const querySnapshot = await getDocs(q);
     const sessions = [];
@@ -568,7 +585,7 @@ export const getUserSessions = async (userId, role) => {
       });
     }
 
-    // Sort sessions by date client-side temporarily
+    // Sort sessions by date client-side
     sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     return {
@@ -685,6 +702,80 @@ export const addSession = async (sessionData) => {
     return { success: true };
   } catch (error) {
     console.error('Error adding session:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Update session status (accept or decline)
+export const updateSessionStatus = async (sessionId, newStatus) => {
+  try {
+    const sessionRef = doc(db, 'sessions', sessionId);
+    const sessionDoc = await getDoc(sessionRef);
+    
+    if (!sessionDoc.exists()) {
+      return { success: false, error: "Session not found." };
+    }
+    
+    // Update session status
+    await updateDoc(sessionRef, {
+      status: newStatus,
+      updatedAt: new Date().toISOString()
+    });
+    
+    // Send notification
+    await sendSessionNotification(sessionId, newStatus);
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating session status:", error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Reschedule a session
+export const rescheduleSession = async (sessionId, newSchedule) => {
+  try {
+    const { date, startTime, endTime } = newSchedule;
+    
+    // Validate inputs
+    if (!date || !startTime || !endTime) {
+      return { success: false, error: "Missing required schedule information." };
+    }
+    
+    const sessionRef = doc(db, 'sessions', sessionId);
+    const sessionDoc = await getDoc(sessionRef);
+    
+    if (!sessionDoc.exists()) {
+      return { success: false, error: "Session not found." };
+    }
+    
+    const session = sessionDoc.data();
+    
+    // Calculate duration in hours
+    const startHour = parseInt(startTime.split(':')[0]);
+    const endHour = parseInt(endTime.split(':')[0]);
+    const duration = endHour - startHour;
+    
+    // Calculate total amount based on new duration
+    const totalAmount = duration * session.hourlyRate;
+    
+    // Update session with new schedule
+    await updateDoc(sessionRef, {
+      date,
+      startTime,
+      endTime,
+      hours: duration,
+      totalAmount,
+      status: 'rescheduled', // New status for rescheduled sessions
+      updatedAt: new Date().toISOString()
+    });
+    
+    // Send notification
+    await sendSessionNotification(sessionId, 'rescheduled');
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Error rescheduling session:", error);
     return { success: false, error: error.message };
   }
 }; 

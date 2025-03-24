@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Image } from 'react-native';
+import { View, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
 import { Text, Button, Card, Avatar, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 import { getCurrentUser, logoutUser } from '../../utils/auth';
 import { CommonActions } from '@react-navigation/native';
 
@@ -12,7 +13,14 @@ const StudentProfileScreen = ({ navigation }) => {
 
   useEffect(() => {
     loadUserProfile();
-  }, []);
+    
+    // Refresh profile when the screen is focused
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadUserProfile();
+    });
+    
+    return unsubscribe;
+  }, [navigation]);
 
   const loadUserProfile = async () => {
     try {
@@ -47,6 +55,10 @@ const StudentProfileScreen = ({ navigation }) => {
       console.error('Error logging out:', error);
     }
   };
+  
+  const navigateToEditProfile = () => {
+    navigation.navigate('EditStudentProfile');
+  };
 
   if (loading) {
     return (
@@ -62,12 +74,21 @@ const StudentProfileScreen = ({ navigation }) => {
         <View style={styles.header}>
           <Avatar.Image
             size={100}
-            source={require('../../../assets/icon.png')}
+            source={userProfile?.photoURL ? { uri: userProfile.photoURL } : require('../../../assets/icon.png')}
             style={styles.avatar}
           />
           <Text style={styles.name}>{userProfile?.fullName || 'Student'}</Text>
           <Text style={styles.email}>{userProfile?.email || ''}</Text>
           <Text style={styles.role}>Student</Text>
+          
+          <Button 
+            mode="outlined" 
+            style={styles.editProfileButton}
+            icon="account-edit-outline"
+            onPress={navigateToEditProfile}
+          >
+            Edit Profile
+          </Button>
         </View>
 
         <Card style={styles.infoCard}>
@@ -158,6 +179,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 20,
     overflow: 'hidden',
+    marginBottom: 15,
+  },
+  editProfileButton: {
+    marginTop: 5,
+    marginBottom: 10,
   },
   infoCard: {
     margin: 15,

@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 import Constants from 'expo-constants';
 
@@ -10,7 +11,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyCJOHXE9Z3-srnMUQYzUicit_sWQCf--XY",
   authDomain: "edubro-reactnative.firebaseapp.com",
   projectId: "edubro-reactnative",
-  storageBucket: "edubro-reactnative.firebasestorage.app",
+  storageBucket: "edubro-reactnative.appspot.com",
   messagingSenderId: "259668060218",
   appId: "1:259668060218:web:438174fdb051ddb4216d03",
   measurementId: "G-HD0N3WGL14"
@@ -25,6 +26,7 @@ const auth = initializeAuth(app, {
 });
 
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 // Conditionally initialize analytics (will skip in Expo Go)
 let analytics = null;
@@ -42,4 +44,4 @@ try {
   console.log('Error initializing Firebase Analytics:', error);
 }
 
-export { auth, db, analytics }; 
+export { app, auth, db, storage, analytics }; 

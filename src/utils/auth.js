@@ -131,11 +131,22 @@ export const updateUserProfile = async (userId, data) => {
       updatedAt: new Date().toISOString()
     });
     
-    // If updating display name, update in Auth too
-    if (data.fullName && auth.currentUser) {
-      await updateProfile(auth.currentUser, {
-        displayName: data.fullName
-      });
+    // Update Firebase Auth profile if we have auth-related fields
+    if (auth.currentUser) {
+      const authUpdateData = {};
+      
+      if (data.fullName) {
+        authUpdateData.displayName = data.fullName;
+      }
+      
+      if (data.photoURL) {
+        authUpdateData.photoURL = data.photoURL;
+      }
+      
+      // Only update if we have fields to update
+      if (Object.keys(authUpdateData).length > 0) {
+        await updateProfile(auth.currentUser, authUpdateData);
+      }
     }
     
     return { success: true };

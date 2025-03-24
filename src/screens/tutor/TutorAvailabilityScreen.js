@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Card, Title, Paragraph, useTheme } from 'react-native-paper';
+import { Text, Card, Title, Paragraph, useTheme, Button, Badge } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import TutorCalendar from '../../components/TutorCalendar';
@@ -11,7 +11,9 @@ import { useCallback } from 'react';
 const TutorAvailabilityScreen = ({ navigation }) => {
   const { user } = useAuth();
   const [todaySessions, setTodaySessions] = useState([]);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
   const theme = useTheme();
 
   const fetchTodaySessions = useCallback(async () => {
@@ -39,10 +41,28 @@ const TutorAvailabilityScreen = ({ navigation }) => {
     }
   }, [user?.uid]);
 
+  const fetchPendingRequests = useCallback(async () => {
+    if (!user?.uid || isLoadingRequests) return;
+    
+    try {
+      setIsLoadingRequests(true);
+      const result = await getUserSessions(user.uid, 'tutor', 'pending');
+      
+      if (result.success) {
+        setPendingRequestsCount(result.sessions.length);
+      }
+    } catch (error) {
+      console.error('Error fetching pending requests:', error);
+    } finally {
+      setIsLoadingRequests(false);
+    }
+  }, [user?.uid]);
+
   useFocusEffect(
     useCallback(() => {
       fetchTodaySessions();
-    }, [fetchTodaySessions])
+      fetchPendingRequests();
+    }, [fetchTodaySessions, fetchPendingRequests])
   );
 
   const renderSessionCard = (session) => {
@@ -110,13 +130,55 @@ const TutorAvailabilityScreen = ({ navigation }) => {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.sessionsContainer}>
-        {renderTodaySessions()}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Tutor Dashboard</Text>
       </View>
-      
-      <View style={styles.calendarContainer}>
-        <TutorCalendar />
-      </View>
+
+      <Card style={styles.sessionCard}>
+        <Card.Content>
+          <View style={styles.cardHeader}>
+            <Title>Today's Sessions</Title>
+            <Button
+              mode="contained"
+              onPress={() => navigation.navigate('ManageSessions')}
+              style={styles.viewAllButton}
+            >
+              View All
+            </Button>
+          </View>
+          
+          {renderTodaySessions()}
+        </Card.Content>
+      </Card>
+
+      <Card style={styles.sessionCard}>
+        <Card.Content>
+          <View style={styles.cardHeader}>
+            <Title>Session Requests</Title>
+            {pendingRequestsCount > 0 && (
+              <Badge style={styles.requestBadge}>{pendingRequestsCount}</Badge>
+            )}
+          </View>
+          
+          <Paragraph style={styles.requestsText}>
+            {isLoadingRequests ? 'Loading session requests...' : 
+             pendingRequestsCount > 0 ? 
+             `You have ${pendingRequestsCount} pending session request${pendingRequestsCount > 1 ? 's' : ''}` : 
+             'No pending session requests'}
+          </Paragraph>
+          
+          <Button
+            mode="contained"
+            onPress={() => navigation.navigate('SessionRequests')}
+            style={styles.requestsButton}
+            icon="calendar-check"
+          >
+            {pendingRequestsCount > 0 ? 'View Requests' : 'Check Requests'}
+          </Button>
+        </Card.Content>
+      </Card>
+
+      <TutorCalendar navigation={navigation} />
     </ScrollView>
   );
 };
@@ -126,14 +188,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  sessionsContainer: {
+  header: {
     padding: 16,
     backgroundColor: '#fff',
     marginBottom: 10,
   },
-  calendarContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  sessionCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 8,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  viewAllButton: {
+    height: 36,
   },
   sectionTitle: {
     fontSize: 20,
@@ -141,27 +219,52 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     color: '#333',
   },
-  sessionCard: {
-    marginBottom: 12,
-    elevation: 2,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#2196F3',
-  },
   sessionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 5,
   },
-  subject: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+  sessionItem: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#2196F3',
+    paddingLeft: 10,
+    marginBottom: 12,
   },
-  time: {
-    fontSize: 16,
+  sessionTime: {
+    fontSize: 14,
     color: '#666',
+  },
+  sessionStudent: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  sessionSubject: {
+    fontSize: 14,
+    color: '#666',
+  },
+  noSessionsText: {
+    fontSize: 16,
+    color: '#999',
+    textAlign: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#999',
+    textAlign: 'center',
+    padding: 20,
+  },
+  requestsText: {
+    fontSize: 16,
+    marginBottom: 15,
+  },
+  requestsButton: {
+    alignSelf: 'flex-start',
+  },
+  requestBadge: {
+    backgroundColor: '#e53935',
+    color: 'white',
   },
   detailsContainer: {
     marginTop: 8,
@@ -175,19 +278,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 14,
     color: '#666',
-  },
-  loadingText: {
-    textAlign: 'center',
-    fontSize: 16,
-    color: '#666',
-    padding: 20,
-  },
-  noSessionsText: {
-    fontSize: 16,
-    color: '#666',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    padding: 20,
   },
 });
 

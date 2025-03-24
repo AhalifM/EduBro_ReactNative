@@ -25,7 +25,6 @@ export const processPayment = async (sessionId, paymentMethod) => {
     await updateDoc(sessionRef, {
       paymentStatus: 'paid',
       paymentId: `sim_${Date.now()}`, // Simulated payment ID
-      status: 'confirmed',
       updatedAt: new Date().toISOString()
     });
     

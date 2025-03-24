@@ -13,6 +13,7 @@ import EditSubjectsScreen from '../screens/tutor/EditSubjectsScreen';
 import EditProfileScreen from '../screens/tutor/EditProfileScreen';
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import ManageSessionsScreen from '../screens/tutor/ManageSessionsScreen';
+import SessionRequestsScreen from '../screens/tutor/SessionRequestsScreen';
 
 // Create placeholder screens for missing features
 const StudentsScreen = () => (
@@ -42,6 +43,11 @@ const ScheduleStack = () => {
         name="ManageSessions" 
         component={ManageSessionsScreen}
         options={{ headerTitle: 'Manage Sessions' }}
+      />
+      <Stack.Screen 
+        name="SessionRequests" 
+        component={SessionRequestsScreen}
+        options={{ headerTitle: 'Session Requests' }}
       />
       <Stack.Screen 
         name="EditSubjects" 

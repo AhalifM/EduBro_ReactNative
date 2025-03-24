@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getAllTutors, getAllSubjects } from '../../utils/tutorUtils';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const FindTutorScreen = ({ navigation }) => {
   const [tutors, setTutors] = useState([]);
@@ -157,66 +158,74 @@ const FindTutorScreen = ({ navigation }) => {
 
   if (isLoading) {
     return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loaderText}>Loading tutors...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#2196F3" />
+          <Text style={styles.loaderText}>Loading tutors...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <MaterialIcons name="search" size={24} color="#999" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by tutor name"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <MaterialIcons name="search" size={24} color="#999" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by tutor name"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery ? (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <MaterialIcons name="clear" size={20} color="#999" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+        
+        <View style={styles.subjectsFilter}>
+          <Text style={styles.filterTitle}>Filter by subject:</Text>
+          <FlatList
+            data={subjects}
+            renderItem={renderSubjectItem}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.subjectsList}
           />
-          {searchQuery ? (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <MaterialIcons name="clear" size={20} color="#999" />
-            </TouchableOpacity>
-          ) : null}
         </View>
-      </View>
-      
-      <View style={styles.subjectsFilter}>
-        <Text style={styles.filterTitle}>Filter by subject:</Text>
-        <FlatList
-          data={subjects}
-          renderItem={renderSubjectItem}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.subjectsList}
-        />
-      </View>
 
-      {filteredTutors.length === 0 ? (
-        <View style={styles.noResultsContainer}>
-          <MaterialIcons name="search-off" size={60} color="#ccc" />
-          <Text style={styles.noResultsText}>No tutors found</Text>
-          <Text style={styles.noResultsSubtext}>
-            Try adjusting your search or filters
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredTutors}
-          renderItem={renderTutorItem}
-          keyExtractor={(item) => item.uid}
-          contentContainerStyle={styles.tutorsList}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
-    </View>
+        {filteredTutors.length === 0 ? (
+          <View style={styles.noResultsContainer}>
+            <MaterialIcons name="search-off" size={60} color="#ccc" />
+            <Text style={styles.noResultsText}>No tutors found</Text>
+            <Text style={styles.noResultsSubtext}>
+              Try adjusting your search or filters
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredTutors}
+            renderItem={renderTutorItem}
+            keyExtractor={(item) => item.uid}
+            contentContainerStyle={styles.tutorsList}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f8f8f8',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f8f8f8',

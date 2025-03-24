@@ -1,5 +1,190 @@
 import { db } from '../firebase/config';
 import { collection, addDoc, query, where, orderBy, getDocs, getDoc, doc, updateDoc } from 'firebase/firestore';
+import { Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+
+// Setup notification handler
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+} catch (error) {
+  console.log('Error setting up notification handler:', error);
+}
+
+// Register for push notifications
+export const registerForPushNotifications = async (userId) => {
+  try {
+    // Get permission
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    
+    if (finalStatus !== 'granted') {
+      console.log('Permission for notifications was denied');
+      return { success: false, error: 'Permission for notifications was denied' };
+    }
+    
+    // Get push token - handle potential errors
+    let token;
+    try {
+      const response = await Notifications.getExpoPushTokenAsync({
+        projectId: Constants.expoConfig?.extra?.eas?.projectId,
+      });
+      token = response.data;
+      console.log('Expo push token:', token);
+    } catch (error) {
+      console.log('Error getting push token:', error);
+      return { success: false, error: 'Could not get push token' };
+    }
+    
+    // Store token in Firestore
+    if (userId && token) {
+      try {
+        const userRef = doc(db, 'users', userId);
+        await updateDoc(userRef, {
+          pushToken: token,
+          updatedAt: new Date().toISOString()
+        });
+      } catch (error) {
+        console.log('Error storing push token:', error);
+        // Continue even if storage fails
+      }
+    }
+    
+    // Configure Android channels
+    if (Platform.OS === 'android') {
+      try {
+        Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+        });
+      } catch (error) {
+        console.log('Error setting up Android notification channel:', error);
+      }
+    }
+    
+    return { success: true, token };
+  } catch (error) {
+    console.error('Error registering for push notifications:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Send notification when session status changes
+export const sendSessionNotification = async (sessionId, status) => {
+  try {
+    // Get session details
+    const sessionRef = doc(db, 'sessions', sessionId);
+    const sessionDoc = await getDoc(sessionRef);
+    
+    if (!sessionDoc.exists()) {
+      return { success: false, error: "Session not found." };
+    }
+    
+    const session = sessionDoc.data();
+    
+    // Determine which user to notify and the message
+    let userIdToNotify;
+    let title;
+    let body;
+    
+    switch (status) {
+      case 'confirmed':
+        // Notify student that session was confirmed by tutor
+        userIdToNotify = session.studentId;
+        title = 'Session Confirmed';
+        body = `Your session with ${session.tutorName} on ${session.date} at ${session.startTime} has been confirmed.`;
+        break;
+        
+      case 'cancelled':
+        // Notify student that session was declined by tutor
+        userIdToNotify = session.studentId;
+        title = 'Session Cancelled';
+        body = `Your session with ${session.tutorName} on ${session.date} at ${session.startTime} has been cancelled.`;
+        break;
+        
+      case 'rescheduled':
+        // Notify student that session was rescheduled by tutor
+        userIdToNotify = session.studentId;
+        title = 'Session Rescheduled';
+        body = `${session.tutorName} has rescheduled your session. Please review the new time.`;
+        break;
+        
+      case 'pending':
+        // Notify tutor of new session request
+        userIdToNotify = session.tutorId;
+        title = 'New Session Request';
+        body = `${session.studentName} has requested a session on ${session.date} at ${session.startTime}.`;
+        break;
+        
+      default:
+        return { success: false, error: "Invalid status for notification." };
+    }
+    
+    // Store notification in Firestore for history
+    await addDoc(collection(db, 'notifications'), {
+      userId: userIdToNotify,
+      title,
+      body,
+      data: { sessionId, status },
+      read: false,
+      createdAt: new Date().toISOString()
+    });
+
+    // Only attempt to send push notifications if we're not in Expo Go or if we have a token
+    try {
+      // Get user's push token
+      const userRef = doc(db, 'users', userIdToNotify);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists() && userDoc.data().pushToken) {
+        const pushToken = userDoc.data().pushToken;
+        
+        // Create notification message
+        const message = {
+          to: pushToken,
+          sound: 'default',
+          title: title,
+          body: body,
+          data: { sessionId, status, date: session.date, time: session.startTime },
+        };
+        
+        // Send notification through Expo push service
+        const response = await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(message),
+        });
+        
+        console.log('Push notification sent:', await response.text());
+      } else {
+        console.log('User does not have a push token registered');
+      }
+    } catch (error) {
+      console.log('Error sending push notification:', error);
+      // Continue even if push notification fails
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error sending notification:', error);
+    return { success: false, error: error.message };
+  }
+};
 
 // Create a notification for a user
 export const createNotification = async (userId, title, message, type, relatedId = null) => {

@@ -11,6 +11,7 @@ import TutorDetailScreen from '../screens/student/TutorDetailScreen';
 import MySessionsScreen from '../screens/student/MySessionsScreen';
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import ApplyTutorScreen from '../screens/student/ApplyTutorScreen';
+import EditProfileScreen from '../screens/student/EditProfileScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -65,6 +66,15 @@ const ProfileStack = () => {
         options={{
           headerShown: true,
           title: 'Apply to be a Tutor',
+          headerTitleAlign: 'center'
+        }}
+      />
+      <Stack.Screen 
+        name="EditStudentProfile" 
+        component={EditProfileScreen} 
+        options={{
+          headerShown: true,
+          title: 'Edit Profile',
           headerTitleAlign: 'center'
         }}
       />

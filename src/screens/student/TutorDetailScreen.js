@@ -202,7 +202,7 @@ const TutorDetailScreen = ({ route, navigation }) => {
             [
               { 
                 text: 'View My Sessions', 
-                onPress: () => navigation.navigate('MySessions') 
+                onPress: () => navigation.navigate('SessionsTab') 
               },
               { 
                 text: 'OK', 

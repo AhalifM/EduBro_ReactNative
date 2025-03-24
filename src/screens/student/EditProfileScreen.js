@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { TextInput, Button, Text, useTheme, Avatar, HelperText } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { updateUserProfile } from '../../utils/auth';
-import { updateTutorHourlyRate } from '../../utils/tutorUtils';
 
 const EditProfileScreen = ({ navigation }) => {
   const { user, refreshUserData } = useAuth();
@@ -13,14 +13,11 @@ const EditProfileScreen = ({ navigation }) => {
   
   // Form state
   const [fullName, setFullName] = useState('');
-  const [bio, setBio] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [hourlyRate, setHourlyRate] = useState('');
   
   // Validation state
   const [errors, setErrors] = useState({
     fullName: '',
-    hourlyRate: '',
     phoneNumber: ''
   });
   
@@ -28,9 +25,7 @@ const EditProfileScreen = ({ navigation }) => {
   useEffect(() => {
     if (user) {
       setFullName(user.fullName || user.displayName || '');
-      setBio(user.bio || '');
       setPhoneNumber(user.phoneNumber || '');
-      setHourlyRate(user.hourlyRate ? user.hourlyRate.toString() : '');
     }
   }, [user]);
   
@@ -38,7 +33,6 @@ const EditProfileScreen = ({ navigation }) => {
     let isValid = true;
     const newErrors = {
       fullName: '',
-      hourlyRate: '',
       phoneNumber: ''
     };
     
@@ -48,23 +42,8 @@ const EditProfileScreen = ({ navigation }) => {
       isValid = false;
     }
     
-    // Validate hourly rate
-    if (!hourlyRate) {
-      newErrors.hourlyRate = 'Hourly rate is required';
-      isValid = false;
-    } else {
-      const rateAsNumber = parseFloat(hourlyRate);
-      if (isNaN(rateAsNumber) || rateAsNumber <= 0) {
-        newErrors.hourlyRate = 'Please enter a valid hourly rate';
-        isValid = false;
-      }
-    }
-    
-    // Validate phone number
-    if (!phoneNumber) {
-      newErrors.phoneNumber = 'Phone number is required';
-      isValid = false;
-    } else if (!/^\+?[0-9\s-]{10,15}$/.test(phoneNumber.trim())) {
+    // Validate phone number (optional)
+    if (phoneNumber && !/^\+?[0-9\s-]{10,15}$/.test(phoneNumber.trim())) {
       newErrors.phoneNumber = 'Please enter a valid phone number';
       isValid = false;
     }
@@ -81,28 +60,21 @@ const EditProfileScreen = ({ navigation }) => {
     try {
       setLoading(true);
       
-      // Parse hourly rate
-      const rateAsNumber = parseFloat(hourlyRate);
-      
       // Update user profile in Firestore (without photo URL)
       const result = await updateUserProfile(user.uid, {
         fullName,
-        bio,
         phoneNumber,
         updatedAt: new Date().toISOString(),
       });
       
-      // Update hourly rate (separate function for tutors)
-      const rateResult = await updateTutorHourlyRate(user.uid, rateAsNumber);
-      
-      if (result.success && rateResult.success) {
+      if (result.success) {
         // Refresh user data in context
         await refreshUserData();
         
         Alert.alert('Success', 'Profile updated successfully');
         navigation.goBack();
       } else {
-        Alert.alert('Error', result.error || rateResult.error || 'Failed to update profile');
+        Alert.alert('Error', result.error || 'Failed to update profile');
       }
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -147,18 +119,6 @@ const EditProfileScreen = ({ navigation }) => {
             </HelperText>
             
             <TextInput
-              label="Bio"
-              value={bio}
-              onChangeText={setBio}
-              style={styles.input}
-              mode="outlined"
-              multiline
-              numberOfLines={4}
-              placeholder="Tell students about yourself, your teaching experience and qualifications..."
-              disabled={loading}
-            />
-            
-            <TextInput
               label="Phone Number"
               value={phoneNumber}
               onChangeText={setPhoneNumber}
@@ -167,23 +127,10 @@ const EditProfileScreen = ({ navigation }) => {
               keyboardType="phone-pad"
               error={!!errors.phoneNumber}
               disabled={loading}
+              placeholder="Optional"
             />
             <HelperText type="error" visible={!!errors.phoneNumber}>
               {errors.phoneNumber}
-            </HelperText>
-            
-            <TextInput
-              label="Hourly Rate ($)"
-              value={hourlyRate}
-              onChangeText={setHourlyRate}
-              style={styles.input}
-              mode="outlined"
-              keyboardType="numeric"
-              error={!!errors.hourlyRate}
-              disabled={loading}
-            />
-            <HelperText type="error" visible={!!errors.hourlyRate}>
-              {errors.hourlyRate}
             </HelperText>
             
             <View style={styles.buttonContainer}>

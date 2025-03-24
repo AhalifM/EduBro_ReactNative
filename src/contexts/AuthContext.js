@@ -5,6 +5,7 @@ import {
   signOut as firebaseSignOut 
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
+import { registerForPushNotifications } from '../utils/notificationUtils';
 
 const AuthContext = createContext();
 
@@ -60,6 +61,11 @@ export const AuthProvider = ({ children }) => {
               ...prevUser, 
               ...firestoreData 
             }));
+            
+            // Register for push notifications
+            registerForPushNotifications(authUser.uid).catch(error => {
+              console.error('Error registering for push notifications:', error);
+            });
           }
         } catch (error) {
           console.error('Error fetching user data:', error);

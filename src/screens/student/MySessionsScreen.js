@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,18 +8,23 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
-  TextInput
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { getUserSessions, cancelSession } from '../../utils/tutorUtils';
-import { completeSessionAndReleasePayment } from '../../utils/paymentUtils';
-import { submitReview } from '../../utils/tutorUtils';
+import { getUserSessions, cancelSession, submitReview, updateSessionStatus } from '../../utils/tutorUtils';
+import { completeSessionAndReleasePayment, processRefund } from '../../utils/paymentUtils';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 
 const MySessionsScreen = ({ navigation }) => {
   const { user } = useAuth();
   const [sessions, setSessions] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('upcoming');
   const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -27,31 +32,30 @@ const MySessionsScreen = ({ navigation }) => {
   const [reviewComment, setReviewComment] = useState('');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   
-  useEffect(() => {
-    if (user?.uid) {
-      fetchSessions();
-    }
-    
-    // Refresh sessions when screen is focused
-    const unsubscribe = navigation.addListener('focus', () => {
+  // Use useFocusEffect to fetch sessions when the screen is focused
+  useFocusEffect(
+    useCallback(() => {
       if (user?.uid) {
+        console.log('Fetching sessions on focus with active tab:', activeTab);
         fetchSessions();
       }
-    });
-    
-    return unsubscribe;
-  }, [navigation, user]);
+      
+      return () => {
+        // Clean up function if needed
+      };
+    }, [user, activeTab])
+  );
   
   const fetchSessions = async () => {
     try {
       setIsLoading(true);
       
-      // Filter sessions based on active tab
-      const statusFilter = activeTab === 'upcoming' ? 'confirmed' : null;
-      
-      const result = await getUserSessions(user.uid, 'student', statusFilter);
+      // Get all sessions for the user as student
+      const result = await getUserSessions(user.uid, 'student');
       
       if (result.success) {
+        console.log('Fetched sessions:', result.sessions.length);
+        
         // Sort by date and time
         const sortedSessions = result.sessions.sort((a, b) => {
           const dateA = new Date(`${a.date}T${a.startTime}`);
@@ -59,31 +63,36 @@ const MySessionsScreen = ({ navigation }) => {
           return dateA - dateB;
         });
         
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        let filteredSessions;
+        
         if (activeTab === 'upcoming') {
-          // Filter future sessions
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          
-          const futureSessions = sortedSessions.filter(session => {
+          // Filter future sessions that are confirmed OR rescheduled
+          filteredSessions = sortedSessions.filter(session => {
             const sessionDate = new Date(session.date);
-            return sessionDate >= today && session.status === 'confirmed';
+            return sessionDate >= today && 
+                  (session.status === 'confirmed' || session.status === 'rescheduled');
           });
-          
-          setSessions(futureSessions);
+          console.log('Upcoming filtered sessions:', filteredSessions.length);
+        } else if (activeTab === 'cancelled') {
+          // Filter cancelled sessions
+          filteredSessions = sortedSessions.filter(session => {
+            return session.status === 'cancelled';
+          });
+          console.log('Cancelled filtered sessions:', filteredSessions.length);
         } else {
-          // Past, completed, or canceled sessions
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          
-          const pastSessions = sortedSessions.filter(session => {
+          // Past or completed sessions
+          filteredSessions = sortedSessions.filter(session => {
             const sessionDate = new Date(session.date);
-            return sessionDate < today || 
-                  session.status === 'completed' || 
-                  session.status === 'cancelled';
+            return (sessionDate < today && session.status !== 'cancelled') || 
+                   session.status === 'completed';
           });
-          
-          setSessions(pastSessions);
+          console.log('Past filtered sessions:', filteredSessions.length);
         }
+        
+        setSessions(filteredSessions);
       }
     } catch (error) {
       console.error('Error fetching sessions:', error);
@@ -91,6 +100,11 @@ const MySessionsScreen = ({ navigation }) => {
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  const handleTabChange = (tabName) => {
+    console.log('Changing tab to:', tabName);
+    setActiveTab(tabName);
   };
   
   const handleCancelSession = async (session) => {
@@ -206,9 +220,82 @@ const MySessionsScreen = ({ navigation }) => {
   
   const handleLeaveReview = (session) => {
     setSelectedSession(session);
-    setRating(0);
-    setReviewComment('');
     setIsReviewModalVisible(true);
+  };
+  
+  const handleAcceptReschedule = (session) => {
+    Alert.alert(
+      'Accept Rescheduled Session',
+      'Are you sure you want to accept this rescheduled session?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Accept',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              
+              // Update the session status to confirmed
+              const result = await updateSessionStatus(session.id, 'confirmed');
+              
+              if (result.success) {
+                Alert.alert('Success', 'You have accepted the rescheduled session');
+                fetchSessions();
+              } else {
+                Alert.alert('Error', result.error || 'Failed to accept rescheduled session');
+              }
+            } catch (error) {
+              console.error('Error accepting rescheduled session:', error);
+              Alert.alert('Error', 'An unexpected error occurred');
+            } finally {
+              setIsLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+  
+  const handleDeclineReschedule = (session) => {
+    Alert.alert(
+      'Decline Rescheduled Session',
+      'Are you sure you want to decline this rescheduled session? This will cancel the booking and refund your payment.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Decline',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              
+              // First update session status to cancelled
+              const updateResult = await updateSessionStatus(session.id, 'cancelled');
+              
+              if (updateResult.success) {
+                // Process refund
+                const refundResult = await processRefund(session.id);
+                
+                if (refundResult.success) {
+                  Alert.alert('Success', 'You have declined the rescheduled session and your payment has been refunded');
+                } else {
+                  Alert.alert('Partial Error', 'Session declined but refund processing failed');
+                }
+                
+                fetchSessions();
+              } else {
+                Alert.alert('Error', updateResult.error || 'Failed to decline rescheduled session');
+              }
+            } catch (error) {
+              console.error('Error declining rescheduled session:', error);
+              Alert.alert('Error', 'An unexpected error occurred');
+            } finally {
+              setIsLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
   
   const submitSessionReview = async () => {
@@ -222,13 +309,13 @@ const MySessionsScreen = ({ navigation }) => {
     try {
       setIsSubmittingReview(true);
       
-      const result = await submitReview({
-        sessionId: selectedSession.id,
-        tutorId: selectedSession.tutorId,
-        studentId: user.uid,
+      const result = await submitReview(
+        selectedSession.id,
+        user.uid,
+        selectedSession.tutorId,
         rating,
-        comment: reviewComment,
-      });
+        reviewComment
+      );
       
       if (result.success) {
         Alert.alert('Success', 'Your review has been submitted');
@@ -266,35 +353,30 @@ const MySessionsScreen = ({ navigation }) => {
   };
   
   const renderSessionItem = ({ item }) => {
-    const isUpcoming = activeTab === 'upcoming';
-    const isPast = !isUpcoming;
-    const isCompleted = item.status === 'completed';
-    const isCancelled = item.status === 'cancelled';
-    
-    // Calculate if session is today
     const sessionDate = new Date(item.date);
     const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    today.setHours(0, 0, 0, 0);
     
-    const isToday = sessionDate.toDateString() === today.toDateString();
-    const isTomorrow = sessionDate.toDateString() === tomorrow.toDateString();
+    const isUpcoming = sessionDate >= today;
+    const isPast = sessionDate < today;
+    const isCompleted = item.status === 'completed';
+    const isCancelled = item.status === 'cancelled';
+    const isRescheduled = item.status === 'rescheduled';
+    const isPending = item.status === 'pending';
     
-    // Format date display
-    let formattedDate;
-    if (isToday) {
-      formattedDate = 'Today';
-    } else if (isTomorrow) {
-      formattedDate = 'Tomorrow';
-    } else {
-      formattedDate = item.date;
-    }
+    const formattedDate = sessionDate.toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
     
     return (
       <View 
         style={[
           styles.sessionCard,
-          isCancelled && styles.cancelledCard
+          isCancelled && styles.cancelledCard,
+          isRescheduled && styles.rescheduledCard
         ]}
       >
         <View style={styles.sessionHeader}>
@@ -307,6 +389,16 @@ const MySessionsScreen = ({ navigation }) => {
           {isCompleted && (
             <View style={[styles.statusBadge, styles.completedBadge]}>
               <Text style={styles.statusText}>Completed</Text>
+            </View>
+          )}
+          {isPending && (
+            <View style={[styles.statusBadge, styles.pendingBadge]}>
+              <Text style={styles.statusText}>Pending</Text>
+            </View>
+          )}
+          {isRescheduled && (
+            <View style={[styles.statusBadge, styles.rescheduledBadge]}>
+              <Text style={styles.statusText}>Rescheduled</Text>
             </View>
           )}
         </View>
@@ -341,12 +433,12 @@ const MySessionsScreen = ({ navigation }) => {
           <View style={styles.detailRow}>
             <MaterialIcons name="attach-money" size={20} color="#666" />
             <Text style={styles.detailText}>
-              Price: ${item.hourlyRate}
+              Price: ${item.hourlyRate}/hr
             </Text>
           </View>
         </View>
         
-        {isUpcoming && !isCancelled && (
+        {isUpcoming && !isCancelled && !isRescheduled && !isPending && (
           <View style={styles.actionButtons}>
             <TouchableOpacity
               style={styles.cancelButton}
@@ -354,6 +446,36 @@ const MySessionsScreen = ({ navigation }) => {
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {isPending && (
+          <View style={styles.statusMessage}>
+            <Text style={styles.pendingText}>
+              Waiting for tutor to approve this session
+            </Text>
+          </View>
+        )}
+        
+        {isRescheduled && (
+          <View style={styles.rescheduledContainer}>
+            <Text style={styles.rescheduledText}>
+              Your tutor has rescheduled this session. Please review the new time.
+            </Text>
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={styles.acceptButton}
+                onPress={() => handleAcceptReschedule(item)}
+              >
+                <Text style={styles.acceptButtonText}>Accept</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.declineButton}
+                onPress={() => handleDeclineReschedule(item)}
+              >
+                <Text style={styles.declineButtonText}>Decline</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
         
@@ -388,6 +510,8 @@ const MySessionsScreen = ({ navigation }) => {
       <Text style={styles.emptyText}>
         {activeTab === 'upcoming' 
           ? "You don't have any upcoming sessions" 
+          : activeTab === 'cancelled'
+          ? "You don't have any cancelled sessions"
           : "You don't have any past sessions"}
       </Text>
       
@@ -404,120 +528,146 @@ const MySessionsScreen = ({ navigation }) => {
   
   if (isLoading && sessions.length === 0) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Loading sessions...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2196F3" />
+          <Text style={styles.loadingText}>Loading sessions...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
   
   return (
-    <View style={styles.container}>
-      <View style={styles.tabsContainer}>
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            activeTab === 'upcoming' && styles.activeTab
-          ]}
-          onPress={() => {
-            setActiveTab('upcoming');
-            fetchSessions();
-          }}
-        >
-          <Text
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.tabsContainer}>
+          <TouchableOpacity
             style={[
-              styles.tabText,
-              activeTab === 'upcoming' && styles.activeTabText
+              styles.tab,
+              activeTab === 'upcoming' && styles.activeTab
             ]}
+            onPress={() => handleTabChange('upcoming')}
           >
-            Upcoming
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            activeTab === 'past' && styles.activeTab
-          ]}
-          onPress={() => {
-            setActiveTab('past');
-            fetchSessions();
-          }}
-        >
-          <Text
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'upcoming' && styles.activeTabText
+              ]}
+            >
+              Upcoming
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
             style={[
-              styles.tabText,
-              activeTab === 'past' && styles.activeTabText
+              styles.tab,
+              activeTab === 'past' && styles.activeTab
             ]}
+            onPress={() => handleTabChange('past')}
           >
-            Past
-          </Text>
-        </TouchableOpacity>
-      </View>
-      
-      <FlatList
-        data={sessions}
-        renderItem={renderSessionItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={renderEmptyList}
-        refreshing={isLoading}
-        onRefresh={fetchSessions}
-      />
-      
-      {/* Review Modal */}
-      <Modal
-        visible={isReviewModalVisible}
-        transparent={true}
-        animationType="slide"
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Rate Your Experience</Text>
-            
-            {renderRatingStars()}
-            
-            <View style={styles.reviewInputContainer}>
-              <Text style={styles.reviewInputLabel}>Comments (optional)</Text>
-              <TextInput
-                style={styles.reviewInput}
-                placeholder="Share your experience with this tutor..."
-                value={reviewComment}
-                onChangeText={setReviewComment}
-                multiline
-                maxLength={500}
-              />
-            </View>
-            
-            <View style={styles.modalActions}>
-              <TouchableOpacity 
-                style={styles.modalCancelButton}
-                onPress={() => setIsReviewModalVisible(false)}
-                disabled={isSubmittingReview}
-              >
-                <Text style={styles.modalCancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.modalSubmitButton}
-                onPress={submitSessionReview}
-                disabled={isSubmittingReview || rating === 0}
-              >
-                {isSubmittingReview ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.modalSubmitButtonText}>Submit</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'past' && styles.activeTabText
+              ]}
+            >
+              Past
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              activeTab === 'cancelled' && styles.activeTab
+            ]}
+            onPress={() => handleTabChange('cancelled')}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'cancelled' && styles.activeTabText
+              ]}
+            >
+              Cancelled
+            </Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
-    </View>
+        
+        <FlatList
+          data={sessions}
+          renderItem={renderSessionItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={renderEmptyList}
+          refreshing={isLoading}
+          onRefresh={fetchSessions}
+        />
+        
+        {/* Review Modal */}
+        <Modal
+          visible={isReviewModalVisible}
+          transparent={true}
+          animationType="slide"
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <KeyboardAvoidingView 
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+              style={styles.modalOverlay}
+            >
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Rate Your Experience</Text>
+                
+                {renderRatingStars()}
+                
+                <View style={styles.reviewInputContainer}>
+                  <Text style={styles.reviewInputLabel}>Comments (optional)</Text>
+                  <TextInput
+                    style={styles.reviewInput}
+                    placeholder="Share your experience with this tutor..."
+                    value={reviewComment}
+                    onChangeText={setReviewComment}
+                    multiline
+                    maxLength={500}
+                    blurOnSubmit={true}
+                    returnKeyType="done"
+                  />
+                </View>
+                
+                <View style={styles.modalActions}>
+                  <TouchableOpacity 
+                    style={styles.modalCancelButton}
+                    onPress={() => setIsReviewModalVisible(false)}
+                    disabled={isSubmittingReview}
+                  >
+                    <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.modalSubmitButton}
+                    onPress={submitSessionReview}
+                    disabled={isSubmittingReview || rating === 0}
+                  >
+                    {isSubmittingReview ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.modalSubmitButtonText}>Submit</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </KeyboardAvoidingView>
+          </TouchableWithoutFeedback>
+        </Modal>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f8f8f8',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f8f8f8',
@@ -538,7 +688,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#2196F3',
   },
   tabText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
   },
   activeTabText: {
@@ -548,6 +698,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
     paddingBottom: 80,
+    flexGrow: 1,
   },
   sessionCard: {
     backgroundColor: '#fff',
@@ -562,6 +713,10 @@ const styles = StyleSheet.create({
   },
   cancelledCard: {
     opacity: 0.7,
+  },
+  rescheduledCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
   },
   sessionHeader: {
     flexDirection: 'row',
@@ -582,6 +737,12 @@ const styles = StyleSheet.create({
   },
   completedBadge: {
     backgroundColor: '#4CAF50',
+  },
+  pendingBadge: {
+    backgroundColor: '#FFC107',
+  },
+  rescheduledBadge: {
+    backgroundColor: '#FF9800',
   },
   statusText: {
     color: '#fff',
@@ -650,6 +811,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 40,
+    flex: 1,
+    minHeight: 300,
   },
   emptyText: {
     fontSize: 16,
@@ -681,6 +844,7 @@ const styles = StyleSheet.create({
     padding: 24,
     width: '90%',
     maxWidth: 400,
+    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 20,
@@ -710,7 +874,7 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
-    height: 120,
+    height: 100,
     textAlignVertical: 'top',
   },
   modalActions: {
@@ -742,6 +906,42 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  rescheduledContainer: {
+    marginBottom: 16,
+  },
+  rescheduledText: {
+    color: '#333',
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  acceptButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  acceptButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  declineButton: {
+    backgroundColor: '#F44336',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 4,
+  },
+  declineButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  statusMessage: {
+    marginBottom: 16,
+  },
+  pendingText: {
+    color: '#333',
+    fontSize: 16,
   },
 });
 
