@@ -1,94 +1,117 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { Text, Card, Title, Paragraph, useTheme } from 'react-native-paper';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import TutorCalendar from '../../components/TutorCalendar';
 import { getUserSessions } from '../../utils/tutorUtils';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 
 const TutorAvailabilityScreen = ({ navigation }) => {
   const { user } = useAuth();
-  const [upcomingSessions, setUpcomingSessions] = useState([]);
+  const [todaySessions, setTodaySessions] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const theme = useTheme();
 
-  useEffect(() => {
-    if (user?.uid) {
-      fetchUpcomingSessions();
-    }
+  const fetchTodaySessions = useCallback(async () => {
+    if (!user?.uid || isLoading) return;
     
-    // Refresh sessions when screen is focused
-    const unsubscribe = navigation.addListener('focus', () => {
-      if (user?.uid) {
-        fetchUpcomingSessions();
-      }
-    });
-    
-    return unsubscribe;
-  }, [navigation, user]);
-
-  const fetchUpcomingSessions = async () => {
     try {
       setIsLoading(true);
-      
-      const result = await getUserSessions(user.uid, 'tutor', 'confirmed');
+      const today = new Date().toISOString().split('T')[0];
+      const result = await getUserSessions(user.uid, 'tutor');
       
       if (result.success) {
-        // Sort by date and time
-        const sortedSessions = result.sessions.sort((a, b) => {
-          const dateA = new Date(`${a.date}T${a.startTime}`);
-          const dateB = new Date(`${b.date}T${b.startTime}`);
-          return dateA - dateB;
-        });
-        
-        // Get only future sessions (today or later)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const futureSessions = sortedSessions.filter(session => {
-          const sessionDate = new Date(session.date);
-          return sessionDate >= today;
-        });
-        
-        setUpcomingSessions(futureSessions.slice(0, 5)); // Show only next 5 sessions
+        const todaysSessions = result.sessions
+          .filter(session => session.date === today && session.status === 'confirmed')
+          .sort((a, b) => {
+            const timeA = a.startTime.replace(':', '');
+            const timeB = b.startTime.replace(':', '');
+            return timeA - timeB;
+          });
+        setTodaySessions(todaysSessions);
       }
     } catch (error) {
-      console.error('Error fetching upcoming sessions:', error);
-      Alert.alert('Error', 'Failed to load upcoming sessions');
+      console.error('Error fetching today\'s sessions:', error);
     } finally {
       setIsLoading(false);
     }
+  }, [user?.uid]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchTodaySessions();
+    }, [fetchTodaySessions])
+  );
+
+  const renderSessionCard = (session) => {
+    return (
+      <Card key={session.id} style={styles.sessionCard}>
+        <Card.Content>
+          <View style={styles.sessionHeader}>
+            <Title style={styles.subject}>{session.subject}</Title>
+            <Text style={styles.time}>
+              {session.startTime} - {session.endTime}
+            </Text>
+          </View>
+          
+          <View style={styles.detailsContainer}>
+            <View style={styles.detailRow}>
+              <MaterialIcons name="person" size={20} color="#666" />
+              <Paragraph style={styles.detailText}>
+                Student: {session.studentName}
+              </Paragraph>
+            </View>
+            
+            {session.studentEmail && (
+              <View style={styles.detailRow}>
+                <MaterialIcons name="email" size={20} color="#666" />
+                <Paragraph style={styles.detailText}>
+                  {session.studentEmail}
+                </Paragraph>
+              </View>
+            )}
+            
+            <View style={styles.detailRow}>
+              <MaterialIcons name="attach-money" size={20} color="#666" />
+              <Paragraph style={styles.detailText}>
+                Rate: ${session.hourlyRate}/hr
+              </Paragraph>
+            </View>
+          </View>
+        </Card.Content>
+      </Card>
+    );
   };
 
-  const renderUpcomingSessions = () => {
-    if (upcomingSessions.length === 0) {
+  const renderTodaySessions = () => {
+    if (isLoading) {
+      return <Text style={styles.loadingText}>Loading sessions...</Text>;
+    }
+
+    if (todaySessions.length === 0) {
       return (
         <Text style={styles.noSessionsText}>
-          You have no upcoming sessions.
+          You have no sessions scheduled for today
         </Text>
       );
     }
 
-    return upcomingSessions.map(session => (
-      <View key={session.id} style={styles.sessionCard}>
-        <Text style={styles.sessionSubject}>{session.subject}</Text>
-        <Text style={styles.sessionDate}>{session.date}</Text>
-        <Text style={styles.sessionTime}>
-          {session.startTime} - {session.endTime}
+    return (
+      <View>
+        <Text style={styles.sectionTitle}>
+          Today's Sessions ({todaySessions.length})
         </Text>
-        <Text style={styles.sessionStudent}>
-          Student: {session.studentName || 'Unknown'}
-        </Text>
+        {todaySessions.map(renderSessionCard)}
       </View>
-    ));
+    );
   };
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.upcomingSessionsContainer}>
-        <Text style={styles.sectionTitle}>Upcoming Sessions</Text>
-        {isLoading ? (
-          <Text style={styles.loadingText}>Loading sessions...</Text>
-        ) : (
-          renderUpcomingSessions()
-        )}
+      <View style={styles.sessionsContainer}>
+        {renderTodaySessions()}
       </View>
       
       <View style={styles.calendarContainer}>
@@ -101,9 +124,9 @@ const TutorAvailabilityScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#f5f5f5',
   },
-  upcomingSessionsContainer: {
+  sessionsContainer: {
     padding: 16,
     backgroundColor: '#fff',
     marginBottom: 10,
@@ -119,44 +142,51 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   sessionCard: {
-    backgroundColor: '#f0f7ff',
-    padding: 16,
-    borderRadius: 8,
     marginBottom: 12,
+    elevation: 2,
+    borderRadius: 8,
     borderLeftWidth: 4,
     borderLeftColor: '#2196F3',
   },
-  sessionSubject: {
+  sessionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  subject: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 4,
     color: '#333',
   },
-  sessionDate: {
+  time: {
     fontSize: 16,
-    color: '#555',
+    color: '#666',
+  },
+  detailsContainer: {
+    marginTop: 8,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 4,
   },
-  sessionTime: {
-    fontSize: 16,
-    color: '#555',
-    marginBottom: 4,
+  detailText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666',
   },
-  sessionStudent: {
+  loadingText: {
+    textAlign: 'center',
     fontSize: 16,
-    color: '#555',
+    color: '#666',
+    padding: 20,
   },
   noSessionsText: {
     fontSize: 16,
     color: '#666',
     fontStyle: 'italic',
     textAlign: 'center',
-    padding: 20,
-  },
-  loadingText: {
-    textAlign: 'center',
-    fontSize: 16,
-    color: '#666',
     padding: 20,
   },
 });

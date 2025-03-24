@@ -4,6 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { useTheme } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { View, Text, StyleSheet } from 'react-native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 // Import screens
 import TutorProfileScreen from '../screens/tutor/TutorProfileScreen';
@@ -11,14 +12,9 @@ import TutorAvailabilityScreen from '../screens/tutor/TutorAvailabilityScreen';
 import EditSubjectsScreen from '../screens/tutor/EditSubjectsScreen';
 import EditProfileScreen from '../screens/tutor/EditProfileScreen';
 import MessagesScreen from '../screens/messages/MessagesScreen';
+import ManageSessionsScreen from '../screens/tutor/ManageSessionsScreen';
 
 // Create placeholder screens for missing features
-const ManageSessionsScreen = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <Text>Manage Sessions Screen</Text>
-  </View>
-);
-
 const StudentsScreen = () => (
   <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
     <Text>My Students Screen</Text>
@@ -27,6 +23,7 @@ const StudentsScreen = () => (
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+const NativeStack = createNativeStackNavigator();
 
 // Stack navigator for schedule
 const ScheduleStack = () => {
@@ -37,18 +34,18 @@ const ScheduleStack = () => {
       }}
     >
       <Stack.Screen 
-        name="Availability" 
-        component={TutorAvailabilityScreen} 
-        options={{ headerTitle: 'My Availability' }}
+        name="TutorAvailability" 
+        component={TutorAvailabilityScreen}
+        options={{ headerTitle: 'Set Availability' }}
       />
       <Stack.Screen 
         name="ManageSessions" 
-        component={ManageSessionsScreen} 
+        component={ManageSessionsScreen}
         options={{ headerTitle: 'Manage Sessions' }}
       />
       <Stack.Screen 
         name="EditSubjects" 
-        component={EditSubjectsScreen} 
+        component={EditSubjectsScreen}
         options={{ headerTitle: 'Edit Subjects' }}
       />
     </Stack.Navigator>

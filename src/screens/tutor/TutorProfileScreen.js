@@ -1,91 +1,67 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Text, Button, Card, Avatar, useTheme, Chip } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { getAllSubjects } from '../../utils/tutorUtils';
+import { getAllSubjects, getUserSessions } from '../../utils/tutorUtils';
 import { logoutUser } from '../../utils/auth';
-import { CommonActions, useFocusEffect } from '@react-navigation/native';
-import { useCallback } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { CommonActions } from '@react-navigation/native';
 
 const TutorProfileScreen = ({ navigation }) => {
-  const { user, signOut, refreshUserData } = useAuth();
+  const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(true);
   const [subjects, setSubjects] = useState([]);
+  const [todaySessionCount, setTodaySessionCount] = useState(0);
+  const [loadingSessions, setLoadingSessions] = useState(false);
   const theme = useTheme();
 
-  // Sample values for stats - in a real app, these would come from Firestore
+  // Sample values for stats
   const rating = user?.rating || 'New';
-  const sessionsCompleted = 0; // This would be fetched from Firebase
-  const studentsHelped = 0; // This would be fetched from Firebase
+  const sessionsCompleted = 0;
+  const studentsHelped = 0;
 
-  // Fetch subjects whenever the screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      if (user) {
-        // Refresh user data from Firestore
-        refreshUserData().then(() => {
-          fetchSubjects();
-        });
-      }
-    }, [user, refreshUserData])
-  );
-
-  // Initial fetch of subjects on component mount
-  useEffect(() => {
-    if (user) {
-      fetchSubjects();
-    }
-  }, [user]);
-
-  const fetchSubjects = async () => {
+  const fetchData = useCallback(async () => {
+    if (!user?.uid) return;
+    
     try {
       setLoading(true);
-      const result = await getAllSubjects();
+      setLoadingSessions(true);
       
-      if (result.success) {
-        // Debug log all subjects
-        console.log('All available subjects:', result.subjects);
-        
-        // Get the latest user data directly instead of through refreshUserData 
-        const userRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userRef);
-        
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          console.log('User data from Firestore:', userData);
-          
-          // Extract subjects array
-          const mySubjectIds = userData.subjects || [];
-          console.log('My subject IDs array:', mySubjectIds);
-          
-          // Filter subjects to only show ones the tutor teaches
-          const mySubjects = result.subjects.filter(subject => 
-            mySubjectIds.includes(subject.id)
-          );
-          
-          console.log('Filtered subjects for display:', mySubjects);
-          setSubjects(mySubjects);
-        } else {
-          console.log('User document not found in Firestore');
-          setSubjects([]);
-        }
+      // Fetch subjects
+      const subjectsResult = await getAllSubjects();
+      if (subjectsResult.success) {
+        const userSubjects = subjectsResult.subjects.filter(
+          subject => user.subjects?.includes(subject.id)
+        );
+        setSubjects(userSubjects);
+      }
+      
+      // Fetch sessions
+      const sessionsResult = await getUserSessions(user.uid, 'tutor');
+      if (sessionsResult.success) {
+        const today = new Date().toISOString().split('T')[0];
+        const todayCount = sessionsResult.sessions.filter(
+          session => session.date === today && session.status === 'confirmed'
+        ).length;
+        setTodaySessionCount(todayCount);
       }
     } catch (error) {
-      console.error('Error fetching subjects:', error);
-      Alert.alert('Error', 'Failed to load subjects');
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
+      setLoadingSessions(false);
     }
-  };
+  }, [user?.uid]);
+
+  React.useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleLogout = async () => {
     try {
       await signOut();
-      
-      // Reset navigation to Auth
+      await logoutUser();
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
@@ -155,16 +131,16 @@ const TutorProfileScreen = ({ navigation }) => {
 
         <Card style={styles.infoCard}>
           <Card.Content>
-            <Text style={styles.cardTitle}>Your Teaching Subjects</Text>
+            <Text style={styles.cardTitle}>Upcoming Teaching Subjects</Text>
             {subjects.length > 0 ? (
               <View style={styles.subjectsContainer}>
                 {subjects.map((subject) => (
                   <Chip 
-                    key={subject.id} 
+                    key={`${subject.id}`}
                     style={styles.subjectChip}
                     textStyle={{ color: theme.colors.primary }}
                   >
-                    {subject.name}
+                    {subject.name || 'Unknown Subject'}
                   </Chip>
                 ))}
               </View>
@@ -186,26 +162,30 @@ const TutorProfileScreen = ({ navigation }) => {
         <Card style={styles.infoCard}>
           <Card.Content>
             <Text style={styles.cardTitle}>Upcoming Sessions</Text>
-            <Text style={styles.emptyText}>No upcoming sessions</Text>
+            <Text style={styles.sessionCountText}>
+              {loadingSessions ? 'Loading sessions...' : (
+                todaySessionCount > 0
+                  ? `You have ${todaySessionCount} session${todaySessionCount > 1 ? 's' : ''} for today`
+                  : 'You have no sessions scheduled for today'
+              )}
+            </Text>
             <Button 
               mode="contained" 
-              style={[styles.scheduleButton, { backgroundColor: theme.colors.primary }]}
-              onPress={() => navigation.navigate('ManageSessions')}
+              style={styles.viewAllButton}
+              onPress={() => navigation.navigate('Schedule', { screen: 'ManageSessions' })}
             >
-              Manage Your Schedule
+              View All Sessions
             </Button>
           </Card.Content>
         </Card>
 
-        <View style={styles.buttonContainer}>
-          <Button
-            mode="outlined"
-            style={styles.logoutButton}
-            onPress={handleLogout}
-          >
-            Logout
-          </Button>
-        </View>
+        <Button 
+          mode="outlined" 
+          style={styles.logoutButton}
+          onPress={handleLogout}
+        >
+          Logout
+        </Button>
       </ScrollView>
     </SafeAreaView>
   );
@@ -216,17 +196,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   header: {
-    backgroundColor: '#fff',
-    padding: 20,
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    padding: 20,
+    backgroundColor: '#fff',
   },
   avatar: {
     marginBottom: 10,
@@ -242,33 +215,27 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   role: {
-    fontSize: 14,
-    color: '#888',
-    backgroundColor: '#f0f0f0',
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    overflow: 'hidden',
+    fontSize: 16,
+    color: '#2196F3',
     marginBottom: 10,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 5,
+    marginBottom: 15,
   },
   rating: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFD700',
+    color: '#FFC107',
     marginRight: 5,
   },
   ratingText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#666',
   },
   infoCard: {
-    margin: 15,
-    borderRadius: 10,
+    margin: 10,
     elevation: 2,
   },
   cardTitle: {
@@ -279,15 +246,15 @@ const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginVertical: 10,
+    marginBottom: 10,
   },
   statItem: {
     alignItems: 'center',
   },
   statNumber: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 5,
+    color: '#2196F3',
   },
   statLabel: {
     fontSize: 14,
@@ -300,30 +267,36 @@ const styles = StyleSheet.create({
   },
   subjectChip: {
     margin: 4,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#E3F2FD',
   },
   editButton: {
-    borderRadius: 8,
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#888',
-    fontStyle: 'italic',
-    marginVertical: 15,
-  },
-  scheduleButton: {
     marginTop: 10,
-    borderRadius: 8,
   },
-  buttonContainer: {
-    padding: 15,
-    marginBottom: 20,
+  sessionCountText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginVertical: 16,
+  },
+  viewAllButton: {
+    marginTop: 8,
   },
   logoutButton: {
-    borderRadius: 8,
+    margin: 10,
+    marginTop: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 15,
   },
   editProfileButton: {
-    borderRadius: 8,
     marginTop: 10,
   },
 });

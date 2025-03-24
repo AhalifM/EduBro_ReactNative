@@ -281,13 +281,13 @@ const RegisterScreen = ({ navigation }) => {
               <View style={styles.subjectsContainer}>
                 {availableSubjects.map((subject) => (
                   <Chip
-                    key={subject}
-                    selected={selectedSubjects.includes(subject)}
-                    onPress={() => toggleSubject(subject)}
+                    key={subject.id}
+                    selected={selectedSubjects.includes(subject.id)}
+                    onPress={() => toggleSubject(subject.id)}
                     style={styles.subjectChip}
                     selectedColor={theme.colors.primary}
                   >
-                    {subject}
+                    {subject.name}
                   </Chip>
                 ))}
               </View>

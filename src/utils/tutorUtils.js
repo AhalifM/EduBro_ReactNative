@@ -13,7 +13,8 @@ import {
   deleteDoc, 
   addDoc,
   Timestamp,
-  serverTimestamp
+  serverTimestamp,
+  orderBy
 } from 'firebase/firestore';
 
 // Get all subjects from the database
@@ -547,33 +548,39 @@ export const cancelSession = async (sessionId, userId) => {
 };
 
 // Get sessions for a user (student or tutor)
-export const getUserSessions = async (userId, role, status = null) => {
+export const getUserSessions = async (userId, role) => {
   try {
-    // Determine field to query based on role
-    const roleField = role === 'tutor' ? 'tutorId' : 'studentId';
-    
-    // Create base query
-    let sessionsQuery = query(
-      collection(db, 'sessions'),
-      where(roleField, '==', userId)
+    const sessionsRef = collection(db, 'sessions');
+    // Temporarily remove orderBy until index is created
+    const q = query(
+      sessionsRef,
+      where(role === 'tutor' ? 'tutorId' : 'studentId', '==', userId)
     );
-    
-    // Add status filter if provided
-    if (status) {
-      sessionsQuery = query(sessionsQuery, where('status', '==', status));
-    }
-    
-    const snapshot = await getDocs(sessionsQuery);
+
+    const querySnapshot = await getDocs(q);
     const sessions = [];
-    
-    snapshot.forEach(doc => {
-      sessions.push({ id: doc.id, ...doc.data() });
-    });
-    
-    return { success: true, sessions };
+
+    for (const doc of querySnapshot.docs) {
+      const sessionData = doc.data();
+      sessions.push({
+        id: doc.id,
+        ...sessionData,
+      });
+    }
+
+    // Sort sessions by date client-side temporarily
+    sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    return {
+      success: true,
+      sessions,
+    };
   } catch (error) {
-    console.error("Error getting user sessions:", error);
-    return { success: false, error: error.message };
+    console.error('Error getting user sessions:', error);
+    return {
+      success: false,
+      error: error.message,
+    };
   }
 };
 
@@ -662,6 +669,22 @@ export const refreshUserData = async (userId) => {
     }
   } catch (error) {
     console.error("Error refreshing user data:", error);
+    return { success: false, error: error.message };
+  }
+};
+
+export const addSession = async (sessionData) => {
+  try {
+    const sessionsRef = collection(db, 'sessions');
+    await addDoc(sessionsRef, {
+      ...sessionData,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error adding session:', error);
     return { success: false, error: error.message };
   }
 }; 
