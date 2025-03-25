@@ -11,9 +11,11 @@ import TutorProfileScreen from '../screens/tutor/TutorProfileScreen';
 import TutorAvailabilityScreen from '../screens/tutor/TutorAvailabilityScreen';
 import EditSubjectsScreen from '../screens/tutor/EditSubjectsScreen';
 import EditProfileScreen from '../screens/tutor/EditProfileScreen';
-import MessagesScreen from '../screens/messages/MessagesScreen';
+import MessagesScreen from '../screens/MessagesScreen';
+import ChatDetailsScreen from '../screens/ChatDetailsScreen';
 import ManageSessionsScreen from '../screens/tutor/ManageSessionsScreen';
 import SessionRequestsScreen from '../screens/tutor/SessionRequestsScreen';
+import TutorIncomeScreen from '../screens/tutor/TutorIncomeScreen';
 
 // Create placeholder screens for missing features
 const StudentsScreen = () => (
@@ -53,6 +55,28 @@ const ScheduleStack = () => {
         name="EditSubjects" 
         component={EditSubjectsScreen}
         options={{ headerTitle: 'Edit Subjects' }}
+      />
+    </Stack.Navigator>
+  );
+};
+
+// Stack navigator for messages
+const MessagesStack = () => {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: true,
+      }}
+    >
+      <Stack.Screen 
+        name="MessagesList" 
+        component={MessagesScreen}
+        options={{ title: 'Messages' }}
+      />
+      <Stack.Screen 
+        name="ChatDetails" 
+        component={ChatDetailsScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );
@@ -99,8 +123,8 @@ const TutorNavigator = () => {
             iconName = 'person';
           } else if (route.name === 'Schedule') {
             iconName = 'schedule';
-          } else if (route.name === 'Students') {
-            iconName = 'groups';
+          } else if (route.name === 'Income') {
+            iconName = 'attach-money';
           } else if (route.name === 'Messages') {
             iconName = 'chat';
           }
@@ -118,13 +142,13 @@ const TutorNavigator = () => {
         options={{ title: 'My Schedule' }}
       />
       <Tab.Screen 
-        name="Students" 
-        component={StudentsScreen} 
-        options={{ title: 'My Students' }}
+        name="Income" 
+        component={TutorIncomeScreen} 
+        options={{ title: 'My Income' }}
       />
       <Tab.Screen 
         name="Messages" 
-        component={MessagesScreen} 
+        component={MessagesStack} 
         options={{ title: 'Messages' }}
       />
       <Tab.Screen 

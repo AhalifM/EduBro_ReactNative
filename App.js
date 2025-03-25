@@ -45,6 +45,10 @@ export default function App() {
     };
     
     setupDatabase();
+    
+    // Note: Chat expiration functionality has been replaced with manual chat ending by tutors
+    // No need for automatic cleanup
+    
   }, []);
 
   return (

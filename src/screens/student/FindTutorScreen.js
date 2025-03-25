@@ -11,17 +11,27 @@ import {
   RefreshControl
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { getAllTutors, getAllSubjects } from '../../utils/tutorUtils';
+import { getAllTutors, getAllSubjects, getTutorAvailability } from '../../utils/tutorUtils';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import TutorFilterModal from '../../components/TutorFilterModal';
+import { format } from 'date-fns';
 
 const FindTutorScreen = ({ navigation }) => {
   const [tutors, setTutors] = useState([]);
   const [filteredTutors, setFilteredTutors] = useState([]);
   const [subjects, setSubjects] = useState([]);
-  const [selectedSubject, setSelectedSubject] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [activeFilters, setActiveFilters] = useState({
+    subject: null,
+    minRating: 0,
+    maxPrice: 100,
+    minPrice: 0,
+    date: null
+  });
+  const [tutorAvailability, setTutorAvailability] = useState({});
 
   useEffect(() => {
     fetchTutorsAndSubjects();
@@ -58,21 +68,60 @@ const FindTutorScreen = ({ navigation }) => {
     }
   };
 
+  // Fetch availability for a specific date
+  const fetchAvailabilityForDate = async (date) => {
+    if (!date) return;
+
+    setIsLoading(true);
+    try {
+      const formattedDate = format(date, 'yyyy-MM-dd');
+      const availabilityData = {};
+
+      // For each tutor, fetch availability for the selected date
+      await Promise.all(
+        tutors.map(async (tutor) => {
+          const result = await getTutorAvailability(tutor.uid, formattedDate, formattedDate);
+          if (result.success && result.availability.length > 0) {
+            availabilityData[tutor.uid] = result.availability;
+          }
+        })
+      );
+
+      setTutorAvailability(availabilityData);
+    } catch (error) {
+      console.error('Error fetching availability:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Handle pull-to-refresh
   const onRefresh = () => {
     setRefreshing(true);
     fetchTutorsAndSubjects();
+    
+    // If date filter is active, refresh availability data too
+    if (activeFilters.date) {
+      fetchAvailabilityForDate(activeFilters.date);
+    }
   };
 
-  // Apply filters when search query or selected subject changes
+  // Apply filters when search query or active filters change
   useEffect(() => {
     filterTutors();
-  }, [searchQuery, selectedSubject, tutors]);
+  }, [searchQuery, activeFilters, tutors, tutorAvailability]);
+
+  // If date filter is changed, fetch availability for that date
+  useEffect(() => {
+    if (activeFilters.date) {
+      fetchAvailabilityForDate(activeFilters.date);
+    }
+  }, [activeFilters.date]);
 
   const filterTutors = () => {
     let filtered = [...tutors];
 
-    // Filter by search query
+    // Filter by search query (tutor name)
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(tutor => {
@@ -82,46 +131,56 @@ const FindTutorScreen = ({ navigation }) => {
     }
 
     // Filter by selected subject
-    if (selectedSubject) {
+    if (activeFilters.subject) {
       filtered = filtered.filter(tutor => 
-        tutor.subjects && tutor.subjects.includes(selectedSubject.id)
+        tutor.subjects && tutor.subjects.includes(activeFilters.subject.id)
+      );
+    }
+
+    // Filter by minimum rating
+    if (activeFilters.minRating > 0) {
+      filtered = filtered.filter(tutor => 
+        tutor.rating && tutor.rating >= activeFilters.minRating
+      );
+    }
+
+    // Filter by price range
+    if (activeFilters.minPrice > 0 || activeFilters.maxPrice < 100) {
+      filtered = filtered.filter(tutor => {
+        const price = tutor.hourlyRate || 0;
+        return price >= activeFilters.minPrice && price <= activeFilters.maxPrice;
+      });
+    }
+
+    // Filter by availability on selected date
+    if (activeFilters.date && Object.keys(tutorAvailability).length > 0) {
+      filtered = filtered.filter(tutor => 
+        tutorAvailability[tutor.uid] && 
+        tutorAvailability[tutor.uid].some(avail => 
+          avail.slots && avail.slots.some(slot => !slot.isBooked)
+        )
       );
     }
 
     setFilteredTutors(filtered);
   };
 
-  const handleSubjectFilter = (subject) => {
-    if (selectedSubject && selectedSubject.id === subject.id) {
-      // If the same subject is selected, clear the filter
-      setSelectedSubject(null);
-    } else {
-      setSelectedSubject(subject);
-    }
+  const handleApplyFilters = (filters) => {
+    setActiveFilters(filters);
+  };
+
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (activeFilters.subject) count++;
+    if (activeFilters.minRating > 0) count++;
+    if (activeFilters.minPrice > 0 || activeFilters.maxPrice < 100) count++;
+    if (activeFilters.date) count++;
+    return count;
   };
 
   const handleTutorSelect = (tutor) => {
     navigation.navigate('TutorDetail', { tutor });
   };
-
-  const renderSubjectItem = ({ item }) => (
-    <TouchableOpacity
-      style={[
-        styles.subjectChip,
-        selectedSubject && selectedSubject.id === item.id && styles.selectedSubjectChip
-      ]}
-      onPress={() => handleSubjectFilter(item)}
-    >
-      <Text 
-        style={[
-          styles.subjectChipText, 
-          selectedSubject && selectedSubject.id === item.id && styles.selectedSubjectChipText
-        ]}
-      >
-        {item.name}
-      </Text>
-    </TouchableOpacity>
-  );
 
   const renderTutorItem = ({ item }) => (
     <TouchableOpacity 
@@ -202,19 +261,67 @@ const FindTutorScreen = ({ navigation }) => {
               </TouchableOpacity>
             ) : null}
           </View>
+          
+          <TouchableOpacity 
+            style={styles.filterButton}
+            onPress={() => setFilterModalVisible(true)}
+          >
+            <MaterialIcons name="filter-list" size={24} color="#2196F3" />
+            {getActiveFilterCount() > 0 && (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{getActiveFilterCount()}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
         
-        <View style={styles.subjectsFilter}>
-          <Text style={styles.filterTitle}>Filter by subject:</Text>
-          <FlatList
-            data={subjects}
-            renderItem={renderSubjectItem}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.subjectsList}
-          />
-        </View>
+        {getActiveFilterCount() > 0 && (
+          <View style={styles.activeFiltersContainer}>
+            <Text style={styles.activeFiltersTitle}>Active Filters:</Text>
+            <View style={styles.activeFiltersContent}>
+              {activeFilters.subject && (
+                <View style={styles.activeFilterChip}>
+                  <Text style={styles.activeFilterChipText}>
+                    Subject: {activeFilters.subject.name}
+                  </Text>
+                </View>
+              )}
+              {activeFilters.minRating > 0 && (
+                <View style={styles.activeFilterChip}>
+                  <Text style={styles.activeFilterChipText}>
+                    Rating: {activeFilters.minRating}+
+                  </Text>
+                </View>
+              )}
+              {(activeFilters.minPrice > 0 || activeFilters.maxPrice < 100) && (
+                <View style={styles.activeFilterChip}>
+                  <Text style={styles.activeFilterChipText}>
+                    Price: ${activeFilters.minPrice}-${activeFilters.maxPrice}/hr
+                  </Text>
+                </View>
+              )}
+              {activeFilters.date && (
+                <View style={styles.activeFilterChip}>
+                  <Text style={styles.activeFilterChipText}>
+                    Available: {format(activeFilters.date, 'MMM d, yyyy')}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <TouchableOpacity 
+              style={styles.clearFiltersButton}
+              onPress={() => setActiveFilters({
+                subject: null,
+                minRating: 0,
+                maxPrice: 100,
+                minPrice: 0,
+                date: null
+              })}
+            >
+              <Text style={styles.clearFiltersText}>Clear All</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {filteredTutors.length === 0 ? (
           <View style={styles.noResultsContainer}>
@@ -241,6 +348,14 @@ const FindTutorScreen = ({ navigation }) => {
             }
           />
         )}
+
+        <TutorFilterModal 
+          isVisible={filterModalVisible} 
+          onClose={() => setFilterModalVisible(false)}
+          onApplyFilters={handleApplyFilters}
+          subjects={subjects}
+          initialFilters={activeFilters}
+        />
       </View>
     </SafeAreaView>
   );
@@ -256,17 +371,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f8f8',
   },
   searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fff',
     padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
   searchBar: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f2f2f2',
     borderRadius: 8,
     paddingHorizontal: 10,
+    marginRight: 10,
   },
   searchIcon: {
     marginRight: 8,
@@ -275,6 +394,66 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 40,
     paddingVertical: 8,
+  },
+  filterButton: {
+    position: 'relative',
+    padding: 8,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#FF5722',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  activeFiltersContainer: {
+    backgroundColor: '#e3f2fd',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#b3e5fc',
+  },
+  activeFiltersTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2196F3',
+    marginBottom: 8,
+  },
+  activeFiltersContent: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  activeFilterChip: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  activeFilterChipText: {
+    color: '#2196F3',
+    fontSize: 12,
+  },
+  clearFiltersButton: {
+    alignSelf: 'flex-end',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  clearFiltersText: {
+    color: '#F44336',
+    fontSize: 12,
+    fontWeight: '600',
   },
   subjectsFilter: {
     backgroundColor: '#fff',
@@ -287,29 +466,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#555',
     marginBottom: 8,
-  },
-  subjectsList: {
-    paddingVertical: 4,
-  },
-  subjectChip: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: '#f2f2f2',
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  selectedSubjectChip: {
-    backgroundColor: '#2196F3',
-    borderColor: '#2196F3',
-  },
-  subjectChipText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  selectedSubjectChipText: {
-    color: '#fff',
   },
   tutorsList: {
     padding: 12,

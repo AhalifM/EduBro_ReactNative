@@ -67,7 +67,7 @@ const ManageSessionsScreen = ({ navigation }) => {
               <Button 
                 mode="contained" 
                 onPress={() => handleAcceptSession(session.id)}
-                style={[styles.actionButton, { backgroundColor: theme.colors.success }]}
+                style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
               >
                 Accept
               </Button>

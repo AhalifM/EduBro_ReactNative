@@ -17,6 +17,7 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { sendSessionNotification } from './notificationUtils';
+import { createChat } from './chatUtils';
 
 // Get all subjects from the database
 export const getAllSubjects = async () => {
@@ -333,7 +334,8 @@ export const getAllTutors = async (filters = {}) => {
     // Add subject filter if provided
     if (filters.subject) {
       tutorsQuery = query(
-        tutorsQuery,
+        collection(db, 'users'),
+        where('role', '==', 'tutor'),
         where('subjects', 'array-contains', filters.subject)
       );
     }
@@ -346,15 +348,12 @@ export const getAllTutors = async (filters = {}) => {
     
     snapshot.forEach(doc => {
       const tutorData = doc.data();
-      console.log('Tutor data for', doc.id, ':', tutorData);
       tutors.push({ uid: doc.id, ...tutorData });
     });
     
     // Filter tutors with non-empty subjects array
     const tutorsWithSubjects = tutors.filter(tutor => {
-      const hasSubjects = tutor.subjects && Array.isArray(tutor.subjects) && tutor.subjects.length > 0;
-      console.log('Tutor', tutor.uid, 'has subjects:', hasSubjects, tutor.subjects);
-      return hasSubjects;
+      return tutor.subjects && Array.isArray(tutor.subjects) && tutor.subjects.length > 0;
     });
     
     console.log(`Found ${tutorsWithSubjects.length} tutors with subjects out of ${tutors.length} total tutors`);
@@ -752,6 +751,32 @@ export const updateSessionStatus = async (sessionId, newStatus) => {
           updatedAt: new Date().toISOString()
         });
       }
+    }
+    
+    // If the session is accepted, create a chat for the student and tutor
+    if (newStatus === 'confirmed') {
+      // Get student details
+      const studentRef = doc(db, 'users', session.studentId);
+      const studentDoc = await getDoc(studentRef);
+      const studentData = studentDoc.exists() ? studentDoc.data() : { displayName: 'Student' };
+      
+      // Get tutor details
+      const tutorRef = doc(db, 'users', session.tutorId);
+      const tutorDoc = await getDoc(tutorRef);
+      const tutorData = tutorDoc.exists() ? tutorDoc.data() : { displayName: 'Tutor' };
+      
+      // Create a chat for the session
+      await createChat(sessionId, {
+        studentId: session.studentId,
+        studentName: studentData.displayName || 'Student',
+        tutorId: session.tutorId,
+        tutorName: tutorData.displayName || 'Tutor',
+        subject: session.subject,
+        date: session.date,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        status: newStatus
+      });
     }
     
     // Send notification

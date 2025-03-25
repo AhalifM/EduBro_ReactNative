@@ -517,7 +517,7 @@ const MySessionsScreen = ({ navigation }) => {
             </Text>
             <View style={styles.actionButtons}>
               <TouchableOpacity
-                style={styles.acceptButton}
+                style={[styles.acceptButton, {backgroundColor: '#4CAF50'}]}
                 onPress={() => handleAcceptReschedule(item)}
               >
                 <Text style={styles.acceptButtonText}>Accept</Text>
@@ -976,7 +976,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 4,
-    marginRight: 8,
+    marginRight: 10,
   },
   acceptButtonText: {
     color: '#fff',

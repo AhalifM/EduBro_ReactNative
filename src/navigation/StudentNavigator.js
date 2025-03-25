@@ -9,7 +9,8 @@ import StudentProfileScreen from '../screens/student/StudentProfileScreen';
 import FindTutorScreen from '../screens/student/FindTutorScreen';
 import TutorDetailScreen from '../screens/student/TutorDetailScreen';
 import MySessionsScreen from '../screens/student/MySessionsScreen';
-import MessagesScreen from '../screens/messages/MessagesScreen';
+import MessagesScreen from '../screens/MessagesScreen';
+import ChatDetailsScreen from '../screens/ChatDetailsScreen';
 import ApplyTutorScreen from '../screens/student/ApplyTutorScreen';
 import EditProfileScreen from '../screens/student/EditProfileScreen';
 
@@ -33,6 +34,28 @@ const TutorsStack = () => {
           title: route.params?.tutor?.displayName || 'Tutor Profile',
           headerTitleAlign: 'center'
         })}
+      />
+    </Stack.Navigator>
+  );
+};
+
+// Stack navigator for messages
+const MessagesStack = () => {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: true,
+      }}
+    >
+      <Stack.Screen 
+        name="MessagesList" 
+        component={MessagesScreen}
+        options={{ title: 'Messages' }}
+      />
+      <Stack.Screen 
+        name="ChatDetails" 
+        component={ChatDetailsScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );
@@ -121,7 +144,7 @@ const StudentNavigator = () => {
       />
       <Tab.Screen 
         name="MessagesTab" 
-        component={MessagesScreen} 
+        component={MessagesStack} 
         options={{ title: 'Messages' }}
       />
       <Tab.Screen 
