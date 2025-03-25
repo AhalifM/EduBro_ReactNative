@@ -715,12 +715,44 @@ export const updateSessionStatus = async (sessionId, newStatus) => {
     if (!sessionDoc.exists()) {
       return { success: false, error: "Session not found." };
     }
+
+    const session = sessionDoc.data();
     
     // Update session status
     await updateDoc(sessionRef, {
       status: newStatus,
       updatedAt: new Date().toISOString()
     });
+
+    // If the session is cancelled/denied, free up the availability slots
+    if (newStatus === 'cancelled') {
+      // Get the availability document
+      const availabilityId = `${session.tutorId}_${session.date}`;
+      const availabilityRef = doc(db, 'availability', availabilityId);
+      const availabilityDoc = await getDoc(availabilityRef);
+      
+      if (availabilityDoc.exists()) {
+        const slots = availabilityDoc.data().slots;
+        
+        // Update slots associated with this session
+        const updatedSlots = slots.map(slot => {
+          if (slot.sessionId === sessionId) {
+            return {
+              ...slot,
+              isBooked: false,
+              sessionId: null
+            };
+          }
+          return slot;
+        });
+        
+        // Update the availability document
+        await updateDoc(availabilityRef, {
+          slots: updatedSlots,
+          updatedAt: new Date().toISOString()
+        });
+      }
+    }
     
     // Send notification
     await sendSessionNotification(sessionId, newStatus);
@@ -776,6 +808,61 @@ export const rescheduleSession = async (sessionId, newSchedule) => {
     return { success: true };
   } catch (error) {
     console.error("Error rescheduling session:", error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Complete a session and release payment to tutor
+export const completeSessionAndReleasePayment = async (sessionId, userId) => {
+  try {
+    // Get session details
+    const sessionRef = doc(db, 'sessions', sessionId);
+    const sessionDoc = await getDoc(sessionRef);
+    
+    if (!sessionDoc.exists()) {
+      return { success: false, error: "Session not found." };
+    }
+    
+    const session = sessionDoc.data();
+    
+    // Verify that the user is the student who booked the session
+    if (session.studentId !== userId) {
+      return { success: false, error: "You don't have permission to complete this session." };
+    }
+    
+    // Check if the session can be completed (not cancelled, not already completed)
+    if (session.status === 'cancelled') {
+      return { success: false, error: "Cancelled sessions cannot be completed." };
+    }
+    
+    if (session.status === 'completed') {
+      return { success: false, error: "Session is already marked as completed." };
+    }
+    
+    // Check if session time has passed
+    const [hours, minutes] = session.startTime.split(':').map(Number);
+    const sessionDateTime = new Date(session.date);
+    sessionDateTime.setHours(hours, minutes, 0, 0);
+    const now = new Date();
+    
+    if (sessionDateTime > now) {
+      return { success: false, error: "You can only complete sessions that have already occurred." };
+    }
+    
+    // Update session status to completed
+    await updateDoc(sessionRef, {
+      status: 'completed',
+      updatedAt: new Date().toISOString()
+    });
+    
+    // In a real app, you would release payment to the tutor through Stripe here
+    
+    // Send notification
+    await sendSessionNotification(sessionId, 'completed');
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Error completing session:", error);
     return { success: false, error: error.message };
   }
 }; 

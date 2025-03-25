@@ -7,7 +7,8 @@ import {
   TouchableOpacity, 
   Image, 
   TextInput,
-  ActivityIndicator 
+  ActivityIndicator,
+  RefreshControl
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getAllTutors, getAllSubjects } from '../../utils/tutorUtils';
@@ -20,10 +21,19 @@ const FindTutorScreen = ({ navigation }) => {
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchTutorsAndSubjects();
-  }, []);
+    
+    // Add focus listener to refresh data when screen is focused
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchTutorsAndSubjects();
+    });
+
+    // Cleanup the listener on unmount
+    return unsubscribe;
+  }, [navigation]);
 
   const fetchTutorsAndSubjects = async () => {
     setIsLoading(true);
@@ -44,7 +54,14 @@ const FindTutorScreen = ({ navigation }) => {
       console.error('Error fetching data:', error);
     } finally {
       setIsLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  // Handle pull-to-refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchTutorsAndSubjects();
   };
 
   // Apply filters when search query or selected subject changes
@@ -214,6 +231,14 @@ const FindTutorScreen = ({ navigation }) => {
             keyExtractor={(item) => item.uid}
             contentContainerStyle={styles.tutorsList}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={['#2196F3']}
+                tintColor={'#2196F3'}
+              />
+            }
           />
         )}
       </View>

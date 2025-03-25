@@ -271,6 +271,24 @@ export const createSessionNotifications = async (session, action) => {
     let tutorNotification, studentNotification;
     
     switch (action) {
+      case 'pending':
+        tutorNotification = {
+          userId: tutorId,
+          title: 'New Session Request',
+          message: `A student has requested a ${subject} session with you on ${date} at ${formattedTime}.`,
+          type: 'session_pending',
+          relatedId: session.id
+        };
+        
+        studentNotification = {
+          userId: studentId,
+          title: 'Session Request Sent',
+          message: `Your ${subject} session request for ${date} at ${formattedTime} has been sent to the tutor.`,
+          type: 'session_pending',
+          relatedId: session.id
+        };
+        break;
+        
       case 'booked':
         tutorNotification = {
           userId: tutorId,

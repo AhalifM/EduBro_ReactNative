@@ -197,8 +197,8 @@ const TutorDetailScreen = ({ route, navigation }) => {
           setIsBookingModalVisible(false);
           
           Alert.alert(
-            'Booking Confirmed!',
-            'Your session has been successfully booked.',
+            'Booking Request Sent!',
+            'Your session has been submitted and is awaiting tutor approval. You can view its status in My Sessions.',
             [
               { 
                 text: 'View My Sessions', 

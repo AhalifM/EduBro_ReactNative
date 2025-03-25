@@ -1,26 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Text, Card, Title, Paragraph, useTheme, Button, Badge } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import TutorCalendar from '../../components/TutorCalendar';
 import { getUserSessions } from '../../utils/tutorUtils';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const TutorAvailabilityScreen = ({ navigation }) => {
   const { user } = useAuth();
   const [todaySessions, setTodaySessions] = useState([]);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(true);
   const theme = useTheme();
 
   const fetchTodaySessions = useCallback(async () => {
-    if (!user?.uid || isLoading) return;
+    if (!user?.uid) return;
     
     try {
-      setIsLoading(true);
+      // Don't set loading on subsequent refreshes to avoid flickering
       const today = new Date().toISOString().split('T')[0];
       const result = await getUserSessions(user.uid, 'tutor');
       
@@ -42,10 +42,10 @@ const TutorAvailabilityScreen = ({ navigation }) => {
   }, [user?.uid]);
 
   const fetchPendingRequests = useCallback(async () => {
-    if (!user?.uid || isLoadingRequests) return;
+    if (!user?.uid) return;
     
     try {
-      setIsLoadingRequests(true);
+      // Don't set loading on subsequent refreshes to avoid flickering
       const result = await getUserSessions(user.uid, 'tutor', 'pending');
       
       if (result.success) {
@@ -58,15 +58,32 @@ const TutorAvailabilityScreen = ({ navigation }) => {
     }
   }, [user?.uid]);
 
+  // Use useFocusEffect for more efficient data fetching
   useFocusEffect(
     useCallback(() => {
-      fetchTodaySessions();
-      fetchPendingRequests();
+      let isMounted = true;
+      
+      const fetchData = async () => {
+        if (isMounted) {
+          // Fetch data in parallel
+          await Promise.all([
+            fetchTodaySessions(),
+            fetchPendingRequests()
+          ]);
+        }
+      };
+      
+      fetchData();
+      
+      return () => {
+        isMounted = false;
+      };
     }, [fetchTodaySessions, fetchPendingRequests])
   );
 
-  const renderSessionCard = (session) => {
-    return (
+  // Memoize session cards to prevent unnecessary re-renders
+  const sessionCards = useMemo(() => {
+    return todaySessions.map((session) => (
       <Card key={session.id} style={styles.sessionCard}>
         <Card.Content>
           <View style={styles.sessionHeader}>
@@ -102,12 +119,18 @@ const TutorAvailabilityScreen = ({ navigation }) => {
           </View>
         </Card.Content>
       </Card>
-    );
-  };
+    ));
+  }, [todaySessions]);
 
-  const renderTodaySessions = () => {
+  // Memoize today's sessions section
+  const todaySessionsSection = useMemo(() => {
     if (isLoading) {
-      return <Text style={styles.loadingText}>Loading sessions...</Text>;
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Loading sessions...</Text>
+        </View>
+      );
     }
 
     if (todaySessions.length === 0) {
@@ -123,35 +146,15 @@ const TutorAvailabilityScreen = ({ navigation }) => {
         <Text style={styles.sectionTitle}>
           Today's Sessions ({todaySessions.length})
         </Text>
-        {todaySessions.map(renderSessionCard)}
+        {sessionCards}
       </View>
     );
-  };
+  }, [isLoading, todaySessions, sessionCards, theme.colors.primary]);
 
-  return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Tutor Dashboard</Text>
-      </View>
-
-      <Card style={styles.sessionCard}>
-        <Card.Content>
-          <View style={styles.cardHeader}>
-            <Title>Today's Sessions</Title>
-            <Button
-              mode="contained"
-              onPress={() => navigation.navigate('ManageSessions')}
-              style={styles.viewAllButton}
-            >
-              View All
-            </Button>
-          </View>
-          
-          {renderTodaySessions()}
-        </Card.Content>
-      </Card>
-
-      <Card style={styles.sessionCard}>
+  // Memoize session requests section
+  const sessionRequestsSection = useMemo(() => {
+    return (
+      <Card style={styles.cardContainer}>
         <Card.Content>
           <View style={styles.cardHeader}>
             <Title>Session Requests</Title>
@@ -160,124 +163,193 @@ const TutorAvailabilityScreen = ({ navigation }) => {
             )}
           </View>
           
-          <Paragraph style={styles.requestsText}>
-            {isLoadingRequests ? 'Loading session requests...' : 
-             pendingRequestsCount > 0 ? 
-             `You have ${pendingRequestsCount} pending session request${pendingRequestsCount > 1 ? 's' : ''}` : 
-             'No pending session requests'}
-          </Paragraph>
+          {isLoadingRequests ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={styles.loadingText}>Loading requests...</Text>
+            </View>
+          ) : (
+            <Paragraph style={styles.requestsText}>
+              {pendingRequestsCount > 0 ? 
+               `You have ${pendingRequestsCount} pending session request${pendingRequestsCount > 1 ? 's' : ''}` : 
+               'No pending session requests'}
+            </Paragraph>
+          )}
           
           <Button
             mode="contained"
             onPress={() => navigation.navigate('SessionRequests')}
             style={styles.requestsButton}
             icon="calendar-check"
+            disabled={isLoadingRequests}
           >
             {pendingRequestsCount > 0 ? 'View Requests' : 'Check Requests'}
           </Button>
         </Card.Content>
       </Card>
+    );
+  }, [isLoadingRequests, pendingRequestsCount, navigation, theme.colors.primary]);
 
-      <TutorCalendar navigation={navigation} />
-    </ScrollView>
+  // Memoize today's sessions card
+  const todaySessionsCard = useMemo(() => {
+    return (
+      <Card style={styles.cardContainer}>
+        <Card.Content>
+          <View style={styles.cardHeader}>
+            <Title>Today's Sessions</Title>
+            <Button
+              mode="contained"
+              onPress={() => navigation.navigate('ManageSessions')}
+              style={styles.viewAllButton}
+              disabled={isLoading}
+            >
+              View All
+            </Button>
+          </View>
+          
+          {todaySessionsSection}
+        </Card.Content>
+      </Card>
+    );
+  }, [todaySessionsSection, navigation, isLoading]);
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Tutor Dashboard</Text>
+        </View>
+
+        {todaySessionsCard}
+        {sessionRequestsSection}
+
+        <TutorCalendar navigation={navigation} />
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f8f8f8',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f8f8',
+  },
+  contentContainer: {
+    paddingBottom: 20,
   },
   header: {
+    backgroundColor: '#2196F3',
     padding: 16,
-    backgroundColor: '#fff',
-    marginBottom: 10,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
+    color: 'white',
   },
-  sessionCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
+  cardContainer: {
+    margin: 16,
+    marginBottom: 8,
     borderRadius: 8,
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+  },
+  sessionCard: {
+    marginVertical: 8,
+    borderRadius: 8,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   viewAllButton: {
-    height: 36,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#333',
+    height: 40,
   },
   sessionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 5,
+    marginBottom: 8,
   },
-  sessionItem: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#2196F3',
-    paddingLeft: 10,
-    marginBottom: 12,
+  subject: {
+    fontSize: 18,
+    fontWeight: '600',
   },
-  sessionTime: {
+  time: {
     fontSize: 14,
     color: '#666',
-  },
-  sessionStudent: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  sessionSubject: {
-    fontSize: 14,
-    color: '#666',
-  },
-  noSessionsText: {
-    fontSize: 16,
-    color: '#999',
-    textAlign: 'center',
-    padding: 20,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#999',
-    textAlign: 'center',
-    padding: 20,
-  },
-  requestsText: {
-    fontSize: 16,
-    marginBottom: 15,
-  },
-  requestsButton: {
-    alignSelf: 'flex-start',
-  },
-  requestBadge: {
-    backgroundColor: '#e53935',
-    color: 'white',
   },
   detailsContainer: {
-    marginTop: 8,
+    marginTop: 10,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginVertical: 4,
   },
   detailText: {
     marginLeft: 8,
     fontSize: 14,
+    color: '#333',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+  },
+  noSessionsText: {
+    marginTop: 10,
+    fontSize: 16,
     color: '#666',
+    textAlign: 'center',
+  },
+  loadingText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 8,
+    marginBottom: 12,
+    color: '#333',
+  },
+  requestsText: {
+    marginVertical: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  requestsButton: {
+    marginTop: 8,
+  },
+  requestBadge: {
+    backgroundColor: '#f44336',
+    color: 'white',
   },
 });
 

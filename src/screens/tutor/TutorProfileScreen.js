@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, Alert, RefreshControl, ActivityIndicator } from 'react-native';
 import { Text, Button, Card, Avatar, useTheme, Chip } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -7,29 +7,38 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getAllSubjects, getUserSessions } from '../../utils/tutorUtils';
 import { logoutUser } from '../../utils/auth';
 import { CommonActions } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 
 const TutorProfileScreen = ({ navigation }) => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshUserData } = useAuth();
   const [loading, setLoading] = useState(true);
   const [subjects, setSubjects] = useState([]);
   const [todaySessionCount, setTodaySessionCount] = useState(0);
-  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [loadingSessions, setLoadingSessions] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [sessionsCompleted, setSessionsCompleted] = useState(0);
+  const [studentsHelped, setStudentsHelped] = useState(0);
   const theme = useTheme();
 
-  // Sample values for stats
-  const rating = user?.rating || 'New';
-  const sessionsCompleted = 0;
-  const studentsHelped = 0;
+  // Format rating with one decimal place
+  const rating = useMemo(() => user?.rating?.toFixed(1) || 'New', [user?.rating]);
 
   const fetchData = useCallback(async () => {
     if (!user?.uid) return;
     
     try {
-      setLoading(true);
-      setLoadingSessions(true);
+      // Only show loading indicators on first load, not on refresh
+      // to prevent flickering
       
-      // Fetch subjects
-      const subjectsResult = await getAllSubjects();
+      // Refresh user data from Firestore to get latest ratings
+      await refreshUserData();
+      
+      // Parallel data fetching for better performance
+      const [subjectsResult, sessionsResult] = await Promise.all([
+        getAllSubjects(),
+        getUserSessions(user.uid, 'tutor')
+      ]);
+      
       if (subjectsResult.success) {
         const userSubjects = subjectsResult.subjects.filter(
           subject => user.subjects?.includes(subject.id)
@@ -37,24 +46,60 @@ const TutorProfileScreen = ({ navigation }) => {
         setSubjects(userSubjects);
       }
       
-      // Fetch sessions
-      const sessionsResult = await getUserSessions(user.uid, 'tutor');
       if (sessionsResult.success) {
+        const allSessions = sessionsResult.sessions;
+        
+        // Count today's sessions
         const today = new Date().toISOString().split('T')[0];
-        const todayCount = sessionsResult.sessions.filter(
+        const todayCount = allSessions.filter(
           session => session.date === today && session.status === 'confirmed'
         ).length;
         setTodaySessionCount(todayCount);
+        
+        // Count completed sessions
+        const completedSessions = allSessions.filter(
+          session => session.status === 'completed'
+        );
+        setSessionsCompleted(completedSessions.length);
+        
+        // Count unique students helped
+        const uniqueStudentIds = new Set(
+          allSessions
+            .filter(session => session.status === 'completed' || session.status === 'confirmed')
+            .map(session => session.studentId)
+        );
+        setStudentsHelped(uniqueStudentIds.size);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
       setLoadingSessions(false);
+      setRefreshing(false);
     }
-  }, [user?.uid]);
+  }, [user?.uid, refreshUserData]);
 
-  React.useEffect(() => {
+  // Use useFocusEffect instead of useEffect + addListener
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      
+      const loadData = async () => {
+        if (isMounted) {
+          await fetchData();
+        }
+      };
+      
+      loadData();
+      
+      return () => {
+        isMounted = false;
+      };
+    }, [fetchData])
+  );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
     fetchData();
   }, [fetchData]);
 
@@ -74,6 +119,75 @@ const TutorProfileScreen = ({ navigation }) => {
     }
   };
 
+  // Memoize the subject chips to prevent unnecessary re-renders
+  const subjectChips = useMemo(() => {
+    return subjects.map((subject) => (
+      <Chip 
+        key={`${subject.id}`}
+        style={styles.subjectChip}
+        textStyle={{ color: theme.colors.primary }}
+      >
+        {subject.name || 'Unknown Subject'}
+      </Chip>
+    ));
+  }, [subjects, theme.colors.primary]);
+
+  // Memoize the teaching stats section
+  const teachingStatsSection = useMemo(() => {
+    return (
+      <Card style={styles.infoCard}>
+        <Card.Content>
+          <Text style={styles.cardTitle}>Your Teaching Stats</Text>
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{sessionsCompleted}</Text>
+              <Text style={styles.statLabel}>Sessions</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{studentsHelped}</Text>
+              <Text style={styles.statLabel}>Students</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{subjects.length}</Text>
+              <Text style={styles.statLabel}>Subjects</Text>
+            </View>
+          </View>
+        </Card.Content>
+      </Card>
+    );
+  }, [sessionsCompleted, studentsHelped, subjects.length]);
+
+  // Memoize the upcoming sessions section
+  const upcomingSessionsSection = useMemo(() => {
+    return (
+      <Card style={styles.infoCard}>
+        <Card.Content>
+          <Text style={styles.cardTitle}>Upcoming Sessions</Text>
+          {loadingSessions ? (
+            <View style={styles.loadingSessionContainer}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={styles.loadingText}>Loading sessions...</Text>
+            </View>
+          ) : (
+            <Text style={styles.sessionCountText}>
+              {todaySessionCount > 0
+                ? `You have ${todaySessionCount} session${todaySessionCount > 1 ? 's' : ''} for today`
+                : 'You have no sessions scheduled for today'}
+            </Text>
+          )}
+          <Button 
+            mode="contained" 
+            style={styles.viewAllButton}
+            onPress={() => navigation.navigate('Schedule', { screen: 'ManageSessions' })}
+            disabled={loadingSessions}
+          >
+            View All Sessions
+          </Button>
+        </Card.Content>
+      </Card>
+    );
+  }, [loadingSessions, todaySessionCount, navigation, theme.colors.primary]);
+
   if (!user) {
     return (
       <View style={styles.loadingContainer}>
@@ -82,9 +196,30 @@ const TutorProfileScreen = ({ navigation }) => {
     );
   }
 
+  if (loading && !refreshing) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
+      <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#2196F3']}
+            tintColor={'#2196F3'}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <Avatar.Image
             size={100}
@@ -97,7 +232,7 @@ const TutorProfileScreen = ({ navigation }) => {
           
           <View style={styles.ratingContainer}>
             <Text style={styles.rating}>{rating} ★</Text>
-            <Text style={styles.ratingText}>Tutor Rating</Text>
+            <Text style={styles.ratingText}>Tutor Rating {user?.totalReviews > 0 ? `(${user?.totalReviews} reviews)` : ''}</Text>
           </View>
           
           <Button 
@@ -109,40 +244,14 @@ const TutorProfileScreen = ({ navigation }) => {
           </Button>
         </View>
 
-        <Card style={styles.infoCard}>
-          <Card.Content>
-            <Text style={styles.cardTitle}>Your Teaching Stats</Text>
-            <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{sessionsCompleted}</Text>
-                <Text style={styles.statLabel}>Sessions</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{studentsHelped}</Text>
-                <Text style={styles.statLabel}>Students</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{subjects.length}</Text>
-                <Text style={styles.statLabel}>Subjects</Text>
-              </View>
-            </View>
-          </Card.Content>
-        </Card>
+        {teachingStatsSection}
 
         <Card style={styles.infoCard}>
           <Card.Content>
             <Text style={styles.cardTitle}>Upcoming Teaching Subjects</Text>
             {subjects.length > 0 ? (
               <View style={styles.subjectsContainer}>
-                {subjects.map((subject) => (
-                  <Chip 
-                    key={`${subject.id}`}
-                    style={styles.subjectChip}
-                    textStyle={{ color: theme.colors.primary }}
-                  >
-                    {subject.name || 'Unknown Subject'}
-                  </Chip>
-                ))}
+                {subjectChips}
               </View>
             ) : (
               <Text style={styles.emptyText}>
@@ -159,25 +268,7 @@ const TutorProfileScreen = ({ navigation }) => {
           </Card.Content>
         </Card>
 
-        <Card style={styles.infoCard}>
-          <Card.Content>
-            <Text style={styles.cardTitle}>Upcoming Sessions</Text>
-            <Text style={styles.sessionCountText}>
-              {loadingSessions ? 'Loading sessions...' : (
-                todaySessionCount > 0
-                  ? `You have ${todaySessionCount} session${todaySessionCount > 1 ? 's' : ''} for today`
-                  : 'You have no sessions scheduled for today'
-              )}
-            </Text>
-            <Button 
-              mode="contained" 
-              style={styles.viewAllButton}
-              onPress={() => navigation.navigate('Schedule', { screen: 'ManageSessions' })}
-            >
-              View All Sessions
-            </Button>
-          </Card.Content>
-        </Card>
+        {upcomingSessionsSection}
 
         <Button 
           mode="outlined" 
@@ -194,12 +285,19 @@ const TutorProfileScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f8f8',
   },
   header: {
     alignItems: 'center',
     padding: 20,
     backgroundColor: '#fff',
+    borderRadius: 8,
+    margin: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
   },
   avatar: {
     marginBottom: 10,
@@ -237,11 +335,17 @@ const styles = StyleSheet.create({
   infoCard: {
     margin: 10,
     elevation: 2,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
+    color: '#333',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -284,11 +388,25 @@ const styles = StyleSheet.create({
   logoutButton: {
     margin: 10,
     marginTop: 20,
+    marginBottom: 30,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
+  },
+  loadingSessionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 15,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginLeft: 10,
   },
   emptyText: {
     fontSize: 16,

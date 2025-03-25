@@ -1,30 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { addAvailabilitySlot, removeAvailabilitySlot, getTutorAvailability } from '../utils/tutorUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 
 const TIME_SLOTS = [
   '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', 
   '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'
 ];
 
-const TutorCalendar = () => {
+const TutorCalendar = React.memo(({ navigation }) => {
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState('');
   const [markedDates, setMarkedDates] = useState({});
   const [availableSlots, setAvailableSlots] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   
-  // Get tutor's availability for the current month
-  useEffect(() => {
-    if (user?.uid) {
-      fetchAvailability();
-    }
-  }, [user]);
-  
-  const fetchAvailability = async () => {
+  // Get tutor's availability for the current month - memoize the function to prevent recreating on every render
+  const fetchAvailability = useCallback(async () => {
+    if (!user?.uid) return;
+    
     try {
       setIsLoading(true);
       
@@ -66,66 +63,73 @@ const TutorCalendar = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.uid, selectedDate]);
   
-  const handleDateSelect = (date) => {
-    const dateString = date.dateString;
-    setSelectedDate(dateString);
-    
-    // Update selected date in marked dates
-    const newMarkedDates = { ...markedDates };
-    
-    // Reset previous selection
-    Object.keys(newMarkedDates).forEach(key => {
-      if (newMarkedDates[key].selected) {
-        newMarkedDates[key] = { 
-          ...newMarkedDates[key], 
-          selected: false 
-        };
-      }
-    });
-    
-    // Add new selection
-    newMarkedDates[dateString] = {
-      ...((newMarkedDates[dateString] || {})),
-      marked: true,
-      dotColor: '#2196F3',
-      selected: true,
-      selectedColor: '#E6F0FA'
-    };
-    
-    setMarkedDates(newMarkedDates);
-    
-    // Fetch slots for this date
-    fetchSlotsForDate(dateString);
-  };
+  // Use useFocusEffect to refetch data only when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      fetchAvailability();
+    }, [fetchAvailability])
+  );
   
-  const fetchSlotsForDate = async (date) => {
+  const fetchSlotsForDate = useCallback(async (date) => {
+    if (!user?.uid) return;
+    
     try {
       setIsLoading(true);
       
       const result = await getTutorAvailability(user.uid, date, date);
       
-      console.log('TutorCalendar - Availability result:', JSON.stringify(result));
-      
       if (result.success) {
         const dateData = result.availability.find(d => d.date === date);
-        console.log('TutorCalendar - Slots for date:', JSON.stringify(dateData));
         setAvailableSlots(dateData ? dateData.slots : []);
       } else {
         setAvailableSlots([]);
       }
     } catch (error) {
       console.error('Error fetching slots for date:', error);
-      Alert.alert('Error', 'Failed to load time slots');
       setAvailableSlots([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.uid]);
   
-  const handleSlotToggle = async (timeSlot) => {
-    if (!selectedDate) {
+  const handleDateSelect = useCallback((date) => {
+    const dateString = date.dateString;
+    setSelectedDate(dateString);
+    
+    // Update selected date in marked dates
+    setMarkedDates(prevMarkedDates => {
+      const newMarkedDates = { ...prevMarkedDates };
+      
+      // Reset previous selection
+      Object.keys(newMarkedDates).forEach(key => {
+        if (newMarkedDates[key].selected) {
+          newMarkedDates[key] = { 
+            ...newMarkedDates[key], 
+            selected: false 
+          };
+        }
+      });
+      
+      // Add new selection
+      newMarkedDates[dateString] = {
+        ...((newMarkedDates[dateString] || {})),
+        marked: true,
+        dotColor: '#2196F3',
+        selected: true,
+        selectedColor: '#E6F0FA'
+      };
+      
+      return newMarkedDates;
+    });
+    
+    // Fetch slots for this date
+    fetchSlotsForDate(dateString);
+  }, [fetchSlotsForDate]);
+  
+  const handleSlotToggle = useCallback(async (timeSlot) => {
+    if (!selectedDate || !user?.uid) {
       Alert.alert('Error', 'Please select a date first');
       return;
     }
@@ -156,23 +160,25 @@ const TutorCalendar = () => {
         // Refresh slots for the selected date
         fetchSlotsForDate(selectedDate);
         
-        // Update calendar dots
-        if (!isSlotAvailable && !markedDates[selectedDate]) {
-          // If adding first slot to a date, mark the date
-          const newMarkedDates = { ...markedDates };
-          newMarkedDates[selectedDate] = {
-            marked: true,
-            dotColor: '#2196F3',
-            selected: true,
-            selectedColor: '#E6F0FA'
-          };
-          setMarkedDates(newMarkedDates);
-        } else if (isSlotAvailable && availableSlots.length === 1) {
-          // If removing the last slot, unmark the date
-          const newMarkedDates = { ...markedDates };
-          delete newMarkedDates[selectedDate];
-          setMarkedDates(newMarkedDates);
-        }
+        // Update calendar dots - use functional updates to avoid stale state
+        setMarkedDates(prevMarkedDates => {
+          const newMarkedDates = { ...prevMarkedDates };
+          
+          if (!isSlotAvailable && !prevMarkedDates[selectedDate]) {
+            // If adding first slot to a date, mark the date
+            newMarkedDates[selectedDate] = {
+              marked: true,
+              dotColor: '#2196F3',
+              selected: true,
+              selectedColor: '#E6F0FA'
+            };
+          } else if (isSlotAvailable && availableSlots.length === 1) {
+            // If removing the last slot, unmark the date
+            delete newMarkedDates[selectedDate];
+          }
+          
+          return newMarkedDates;
+        });
       } else {
         Alert.alert('Error', result.error || 'Failed to update availability');
       }
@@ -182,55 +188,63 @@ const TutorCalendar = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [availableSlots, selectedDate, user?.uid, fetchSlotsForDate]);
   
-  const renderTimeSlots = () => {
-    return (
-      <ScrollView style={styles.timeSlotsContainer}>
-        {TIME_SLOTS.map((slot) => {
-          // Find if slot exists in availableSlots and is not booked
-          const slotObj = availableSlots.find(s => s.startTime === slot);
-          const isAvailable = slotObj && !slotObj.isBooked;
-          
-          return (
-            <TouchableOpacity
-              key={slot}
-              style={[
-                styles.timeSlot,
-                isAvailable ? styles.availableSlot : styles.unavailableSlot
-              ]}
-              onPress={() => handleSlotToggle(slot)}
-              disabled={isLoading || (slotObj && slotObj.isBooked)}
-            >
-              <Text style={styles.timeSlotText}>{slot}</Text>
-              {isAvailable && (
-                <MaterialIcons name="check" size={20} color="#fff" />
-              )}
-              {slotObj && slotObj.isBooked && (
-                <Text style={styles.bookedText}>Booked</Text>
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-    );
-  };
-  
+  // Memoize the time slots rendering to prevent unnecessary recalculations
+  const timeSlots = useMemo(() => {
+    return TIME_SLOTS.map((slot) => {
+      // Find if slot exists in availableSlots and is not booked
+      const slotObj = availableSlots.find(s => s.startTime === slot);
+      const isAvailable = slotObj && !slotObj.isBooked;
+      
+      return (
+        <TouchableOpacity
+          key={slot}
+          style={[
+            styles.timeSlot,
+            isAvailable ? styles.availableSlot : styles.unavailableSlot
+          ]}
+          onPress={() => handleSlotToggle(slot)}
+          disabled={isLoading || (slotObj && slotObj.isBooked)}
+        >
+          <Text style={styles.timeSlotText}>{slot}</Text>
+          {isAvailable && (
+            <MaterialIcons name="check" size={20} color="#fff" />
+          )}
+          {slotObj && slotObj.isBooked && (
+            <Text style={styles.bookedText}>Booked</Text>
+          )}
+        </TouchableOpacity>
+      );
+    });
+  }, [availableSlots, isLoading, handleSlotToggle]);
+
+  // Memoize the calendar theme to prevent recreating on every render
+  const calendarTheme = useMemo(() => ({
+    selectedDayBackgroundColor: '#2196F3',
+    todayTextColor: '#2196F3',
+    arrowColor: '#2196F3',
+  }), []);
+
+  // Memoize min and max date to prevent recalculation on every render
+  const minDate = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const maxDate = useMemo(() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() + 3);
+    return date.toISOString().split('T')[0];
+  }, []);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Set Your Availability</Text>
       <Calendar
         onDayPress={handleDateSelect}
         markedDates={markedDates}
-        minDate={new Date().toISOString().split('T')[0]}
-        maxDate={new Date(new Date().setMonth(new Date().getMonth() + 3)).toISOString().split('T')[0]}
+        minDate={minDate}
+        maxDate={maxDate}
         hideExtraDays={true}
         enableSwipeMonths={true}
-        theme={{
-          selectedDayBackgroundColor: '#2196F3',
-          todayTextColor: '#2196F3',
-          arrowColor: '#2196F3',
-        }}
+        theme={calendarTheme}
       />
       
       {selectedDate ? (
@@ -241,7 +255,13 @@ const TutorCalendar = () => {
           {isLoading ? (
             <Text style={styles.loadingText}>Loading...</Text>
           ) : (
-            renderTimeSlots()
+            <ScrollView 
+              style={styles.timeSlotsContainer}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.timeSlotsContentContainer}
+            >
+              {timeSlots}
+            </ScrollView>
           )}
         </View>
       ) : (
@@ -251,7 +271,7 @@ const TutorCalendar = () => {
       )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -278,6 +298,9 @@ const styles = StyleSheet.create({
   timeSlotsContainer: {
     flex: 1,
   },
+  timeSlotsContentContainer: {
+    paddingBottom: 20,
+  },
   timeSlot: {
     padding: 16,
     marginVertical: 8,
@@ -285,6 +308,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
   },
   availableSlot: {
     backgroundColor: '#2196F3',
@@ -295,6 +323,7 @@ const styles = StyleSheet.create({
   timeSlotText: {
     fontSize: 16,
     color: '#333',
+    fontWeight: '500',
   },
   loadingText: {
     textAlign: 'center',

@@ -63,17 +63,35 @@ const MySessionsScreen = ({ navigation }) => {
           return dateA - dateB;
         });
         
+        const now = new Date();
+        console.log('Current time:', now.toISOString());
+        
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        console.log('Today (start of day):', today.toISOString());
         
         let filteredSessions;
         
         if (activeTab === 'upcoming') {
-          // Filter future sessions that are confirmed OR rescheduled
+          // Filter future sessions that are confirmed, rescheduled OR pending
+          // Also check if the session time has already passed today
           filteredSessions = sortedSessions.filter(session => {
             const sessionDate = new Date(session.date);
-            return sessionDate >= today && 
-                  (session.status === 'confirmed' || session.status === 'rescheduled');
+            
+            // Create a proper date-time object by combining date and time
+            const [hours, minutes] = session.startTime.split(':').map(Number);
+            const sessionDateTime = new Date(session.date);
+            sessionDateTime.setHours(hours, minutes, 0, 0);
+            
+            console.log(`Session ${session.id} DateTime:`, sessionDateTime.toISOString(), 'Now:', now.toISOString(), 'IsInFuture:', sessionDateTime > now);
+            
+            // Session is in the future and has the correct status
+            const isInFuture = sessionDateTime > now;
+            const hasCorrectStatus = (session.status === 'confirmed' || 
+                             session.status === 'rescheduled' || 
+                             session.status === 'pending');
+                             
+            return isInFuture && hasCorrectStatus;
           });
           console.log('Upcoming filtered sessions:', filteredSessions.length);
         } else if (activeTab === 'cancelled') {
@@ -84,10 +102,21 @@ const MySessionsScreen = ({ navigation }) => {
           console.log('Cancelled filtered sessions:', filteredSessions.length);
         } else {
           // Past or completed sessions
+          // Include sessions that were today but time has passed
           filteredSessions = sortedSessions.filter(session => {
-            const sessionDate = new Date(session.date);
-            return (sessionDate < today && session.status !== 'cancelled') || 
-                   session.status === 'completed';
+            // Create a proper date-time object by combining date and time
+            const [hours, minutes] = session.startTime.split(':').map(Number);
+            const sessionDateTime = new Date(session.date);
+            sessionDateTime.setHours(hours, minutes, 0, 0);
+            
+            console.log(`Past session ${session.id} DateTime:`, sessionDateTime.toISOString(), 'Now:', now.toISOString(), 'IsInPast:', sessionDateTime <= now);
+            
+            // Either the session is in the past or it's completed
+            const isInPast = sessionDateTime <= now;
+            const isNotCancelled = session.status !== 'cancelled';
+            const isCompleted = session.status === 'completed';
+            
+            return (isInPast && isNotCancelled) || isCompleted;
           });
           console.log('Past filtered sessions:', filteredSessions.length);
         }
@@ -156,12 +185,13 @@ const MySessionsScreen = ({ navigation }) => {
   };
   
   const handleCompleteSession = async (session) => {
-    // Check if session date has passed
-    const sessionDate = new Date(session.date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Check if session time has passed
+    const [hours, minutes] = session.startTime.split(':').map(Number);
+    const sessionDateTime = new Date(session.date);
+    sessionDateTime.setHours(hours, minutes, 0, 0);
+    const now = new Date();
     
-    if (sessionDate > today) {
+    if (sessionDateTime > now) {
       Alert.alert(
         'Cannot Complete Session',
         'You can only complete sessions that have already occurred.'
@@ -357,8 +387,17 @@ const MySessionsScreen = ({ navigation }) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const isUpcoming = sessionDate >= today;
-    const isPast = sessionDate < today;
+    // Create a date-time object for time comparison
+    const [hours, minutes] = item.startTime.split(':').map(Number);
+    const sessionDateTime = new Date(item.date);
+    sessionDateTime.setHours(hours, minutes, 0, 0);
+    const now = new Date();
+    
+    // Check if this session has passed but not marked as completed
+    const hasPassed = sessionDateTime < now;
+    
+    const isUpcoming = sessionDateTime > now;
+    const isPast = hasPassed;
     const isCompleted = item.status === 'completed';
     const isCancelled = item.status === 'cancelled';
     const isRescheduled = item.status === 'rescheduled';
@@ -391,7 +430,7 @@ const MySessionsScreen = ({ navigation }) => {
               <Text style={styles.statusText}>Completed</Text>
             </View>
           )}
-          {isPending && (
+          {isPending && !hasPassed && (
             <View style={[styles.statusBadge, styles.pendingBadge]}>
               <Text style={styles.statusText}>Pending</Text>
             </View>
@@ -399,6 +438,11 @@ const MySessionsScreen = ({ navigation }) => {
           {isRescheduled && (
             <View style={[styles.statusBadge, styles.rescheduledBadge]}>
               <Text style={styles.statusText}>Rescheduled</Text>
+            </View>
+          )}
+          {isPending && hasPassed && (
+            <View style={[styles.statusBadge, styles.pastPendingBadge]}>
+              <Text style={styles.statusText}>Needs Completion</Text>
             </View>
           )}
         </View>
@@ -449,10 +493,19 @@ const MySessionsScreen = ({ navigation }) => {
           </View>
         )}
 
-        {isPending && (
+        {isPending && !hasPassed && (
           <View style={styles.statusMessage}>
             <Text style={styles.pendingText}>
               Waiting for tutor to approve this session
+            </Text>
+          </View>
+        )}
+        
+        {isPending && hasPassed && (
+          <View style={styles.statusMessage}>
+            <Text style={styles.pendingText}>
+              This session has passed but hasn't been marked as completed. 
+              You can complete it using the button below.
             </Text>
           </View>
         )}
@@ -518,7 +571,7 @@ const MySessionsScreen = ({ navigation }) => {
       {activeTab === 'upcoming' && (
         <TouchableOpacity
           style={styles.findTutorButton}
-          onPress={() => navigation.navigate('FindTutor')}
+          onPress={() => navigation.navigate('TutorsTab')}
         >
           <Text style={styles.findTutorButtonText}>Find a Tutor</Text>
         </TouchableOpacity>
@@ -740,6 +793,9 @@ const styles = StyleSheet.create({
   },
   pendingBadge: {
     backgroundColor: '#FFC107',
+  },
+  pastPendingBadge: {
+    backgroundColor: '#FF9800',
   },
   rescheduledBadge: {
     backgroundColor: '#FF9800',

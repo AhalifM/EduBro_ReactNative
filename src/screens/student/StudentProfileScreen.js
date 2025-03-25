@@ -1,15 +1,65 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Image, TouchableOpacity, RefreshControl } from 'react-native';
 import { Text, Button, Card, Avatar, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getCurrentUser, logoutUser } from '../../utils/auth';
+import { getUserSessions } from '../../utils/tutorUtils';
 import { CommonActions } from '@react-navigation/native';
 
 const StudentProfileScreen = ({ navigation }) => {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [sessionCount, setSessionCount] = useState(0);
+  const [tutorCount, setTutorCount] = useState(0);
+  const [courseCount, setCourseCount] = useState(0);
   const theme = useTheme();
+
+  const loadUserProfile = async () => {
+    try {
+      setLoading(true);
+      const userData = await getCurrentUser();
+      if (userData) {
+        setUserProfile(userData);
+        
+        // Fetch sessions data
+        const sessionsResult = await getUserSessions(userData.uid, 'student');
+        if (sessionsResult.success) {
+          const allSessions = sessionsResult.sessions;
+          
+          // Count total non-cancelled sessions
+          const validSessions = allSessions.filter(
+            session => session.status !== 'cancelled'
+          );
+          setSessionCount(validSessions.length);
+          
+          // Count unique tutors
+          const uniqueTutorIds = new Set(
+            validSessions.map(session => session.tutorId)
+          );
+          setTutorCount(uniqueTutorIds.size);
+          
+          // Count unique subjects (as courses)
+          const uniqueSubjects = new Set(
+            validSessions.map(session => session.subject)
+          );
+          setCourseCount(uniqueSubjects.size);
+        }
+      } else {
+        // If no user data, redirect to Auth navigator
+        const rootNavigation = navigation.getParent();
+        if (rootNavigation) {
+          rootNavigation.navigate('Auth');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     loadUserProfile();
@@ -22,23 +72,9 @@ const StudentProfileScreen = ({ navigation }) => {
     return unsubscribe;
   }, [navigation]);
 
-  const loadUserProfile = async () => {
-    try {
-      const userData = await getCurrentUser();
-      if (userData) {
-        setUserProfile(userData);
-      } else {
-        // If no user data, redirect to Auth navigator
-        const rootNavigation = navigation.getParent();
-        if (rootNavigation) {
-          rootNavigation.navigate('Auth');
-        }
-      }
-    } catch (error) {
-      console.error('Error loading profile:', error);
-    } finally {
-      setLoading(false);
-    }
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadUserProfile();
   };
 
   const handleLogout = async () => {
@@ -60,7 +96,7 @@ const StudentProfileScreen = ({ navigation }) => {
     navigation.navigate('EditStudentProfile');
   };
 
-  if (loading) {
+  if (loading && !userProfile) {
     return (
       <View style={styles.loadingContainer}>
         <Text>Loading profile...</Text>
@@ -70,7 +106,16 @@ const StudentProfileScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
+      <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#2196F3']}
+            tintColor={'#2196F3'}
+          />
+        }
+      >
         <View style={styles.header}>
           <Avatar.Image
             size={100}
@@ -96,15 +141,15 @@ const StudentProfileScreen = ({ navigation }) => {
             <Text style={styles.cardTitle}>Your Learning Journey</Text>
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>0</Text>
-                <Text style={styles.statLabel}>Courses</Text>
+                <Text style={styles.statNumber}>{courseCount}</Text>
+                <Text style={styles.statLabel}>Subjects</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>0</Text>
+                <Text style={styles.statNumber}>{sessionCount}</Text>
                 <Text style={styles.statLabel}>Sessions</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>0</Text>
+                <Text style={styles.statNumber}>{tutorCount}</Text>
                 <Text style={styles.statLabel}>Tutors</Text>
               </View>
             </View>
