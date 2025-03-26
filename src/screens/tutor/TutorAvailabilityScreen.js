@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { Text, Card, Title, Paragraph, useTheme, Button, Badge, Divider } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
@@ -91,7 +91,7 @@ const TutorAvailabilityScreen = ({ navigation }) => {
           <View style={styles.sessionHeader}>
             <Title style={styles.subject}>{session.subject}</Title>
             <View style={styles.timeContainer}>
-              <MaterialIcons name="access-time" size={18} color="#0EA5E9" style={styles.timeIcon} />
+              <MaterialIcons name="access-time" size={18} color="#9C27B0" style={styles.timeIcon} />
               <Text style={styles.time}>
                 {session.startTime} - {session.endTime}
               </Text>
@@ -100,7 +100,7 @@ const TutorAvailabilityScreen = ({ navigation }) => {
           
           <View style={styles.detailsContainer}>
             <View style={styles.detailRow}>
-              <MaterialIcons name="person" size={20} color="#2563EB" />
+              <MaterialIcons name="person" size={20} color="#9C27B0" />
               <Paragraph style={styles.detailText}>
                 {session.studentName}
               </Paragraph>
@@ -108,7 +108,7 @@ const TutorAvailabilityScreen = ({ navigation }) => {
             
             {session.studentEmail && (
               <View style={styles.detailRow}>
-                <MaterialIcons name="email" size={20} color="#2563EB" />
+                <MaterialIcons name="email" size={20} color="#9C27B0" />
                 <Paragraph style={styles.detailText}>
                   {session.studentEmail}
                 </Paragraph>
@@ -116,7 +116,7 @@ const TutorAvailabilityScreen = ({ navigation }) => {
             )}
             
             <View style={styles.detailRow}>
-              <MaterialIcons name="attach-money" size={20} color="#10B981" />
+              <MaterialIcons name="attach-money" size={20} color="#9C27B0" />
               <Paragraph style={styles.detailText}>
                 ${session.hourlyRate}/hr
               </Paragraph>
@@ -132,7 +132,7 @@ const TutorAvailabilityScreen = ({ navigation }) => {
     if (isLoading) {
       return (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={theme.colors.primary} />
+          <ActivityIndicator size="small" color="#9C27B0" />
           <Text style={styles.loadingText}>Loading sessions...</Text>
         </View>
       );
@@ -157,20 +157,20 @@ const TutorAvailabilityScreen = ({ navigation }) => {
         {sessionCards}
       </View>
     );
-  }, [isLoading, todaySessions, sessionCards, theme.colors.primary]);
+  }, [isLoading, todaySessions, sessionCards]);
 
   // Memoize session requests section
   const sessionRequestsSection = useMemo(() => {
     return (
       <Card style={styles.cardContainer} mode="elevated">
         <LinearGradient
-          colors={['#F0F9FF', '#E0F2FE']}
+          colors={['#F3E5F5', '#FCE4EC']}
           style={styles.cardGradient}
         >
           <Card.Content>
             <View style={styles.cardHeader}>
               <View style={styles.cardTitleContainer}>
-                <MaterialIcons name="notifications" size={24} color="#2563EB" style={styles.cardIcon} />
+                <MaterialIcons name="notifications" size={24} color="#9C27B0" style={styles.cardIcon} />
                 <Title style={styles.cardTitle}>Session Requests</Title>
               </View>
               {pendingRequestsCount > 0 && (
@@ -180,7 +180,7 @@ const TutorAvailabilityScreen = ({ navigation }) => {
             
             {isLoadingRequests ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={theme.colors.primary} />
+                <ActivityIndicator size="small" color="#9C27B0" />
                 <Text style={styles.loadingText}>Loading requests...</Text>
               </View>
             ) : (
@@ -188,7 +188,7 @@ const TutorAvailabilityScreen = ({ navigation }) => {
                 <MaterialIcons 
                   name={pendingRequestsCount > 0 ? "mark-email-unread" : "mark-email-read"} 
                   size={36} 
-                  color={pendingRequestsCount > 0 ? "#F59E0B" : "#6B7280"} 
+                  color={pendingRequestsCount > 0 ? "#E91E63" : "#6B7280"} 
                   style={styles.requestsIcon}
                 />
                 <Paragraph style={styles.requestsText}>
@@ -203,6 +203,7 @@ const TutorAvailabilityScreen = ({ navigation }) => {
               mode="contained"
               onPress={() => navigation.navigate('SessionRequests')}
               style={styles.requestsButton}
+              buttonColor="#9C27B0"
               icon="calendar-check"
               disabled={isLoadingRequests}
             >
@@ -212,26 +213,27 @@ const TutorAvailabilityScreen = ({ navigation }) => {
         </LinearGradient>
       </Card>
     );
-  }, [isLoadingRequests, pendingRequestsCount, navigation, theme.colors.primary]);
+  }, [isLoadingRequests, pendingRequestsCount, navigation]);
 
   // Memoize today's sessions card
   const todaySessionsCard = useMemo(() => {
     return (
       <Card style={styles.cardContainer} mode="elevated">
         <LinearGradient
-          colors={['#F0F9FF', '#E0F2FE']}
+          colors={['#F3E5F5', '#FCE4EC']}
           style={styles.cardGradient}
         >
           <Card.Content>
             <View style={styles.cardHeader}>
               <View style={styles.cardTitleContainer}>
-                <MaterialIcons name="today" size={24} color="#2563EB" style={styles.cardIcon} />
+                <MaterialIcons name="today" size={24} color="#9C27B0" style={styles.cardIcon} />
                 <Title style={styles.cardTitle}>Today's Sessions</Title>
               </View>
               <Button
                 mode="contained"
                 onPress={() => navigation.navigate('ManageSessions')}
                 style={styles.viewAllButton}
+                buttonColor="#9C27B0"
                 disabled={isLoading}
                 labelStyle={styles.buttonLabel}
               >
@@ -249,11 +251,22 @@ const TutorAvailabilityScreen = ({ navigation }) => {
   }, [todaySessionsSection, navigation, isLoading]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-      <StatusBar style="dark" />
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+      <StatusBar style="light" />
       
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Set Availability</Text>
+      <View style={styles.headerContainer}>
+        <LinearGradient
+          colors={['#9C27B0', '#E91E63']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0.7 }}
+          style={styles.headerGradient}
+        >
+          <SafeAreaView edges={['top']} style={styles.safeAreaTop}>
+            <View style={styles.headerContent}>
+              <Text style={styles.headerTitle}>Set Availability</Text>
+            </View>
+          </SafeAreaView>
+        </LinearGradient>
       </View>
       
       <ScrollView 
@@ -281,28 +294,39 @@ const TutorAvailabilityScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F9FA',
+  },
+  safeAreaTop: {
+    width: '100%',
   },
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8F9FA',
   },
   contentContainer: {
     paddingBottom: 30,
   },
-  header: {
-    backgroundColor: '#2563EB',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+  headerContainer: {
+    overflow: 'hidden',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
     elevation: 4,
-    marginBottom: 8,
+    shadowColor: '#9C27B0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  headerGradient: {
+    width: '100%',
+  },
+  headerContent: {
+    padding: 20,
+    paddingTop: Platform.OS === 'android' ? 16 : 0,
+    paddingBottom: 24,
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#FFFFFF',
     textAlign: 'center',
@@ -358,7 +382,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: '#E9D5F0',
     marginVertical: 16,
   },
   sessionCard: {
@@ -372,7 +396,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     borderLeftWidth: 4,
-    borderLeftColor: '#2563EB',
+    borderLeftColor: '#9C27B0',
   },
   sessionHeader: {
     flexDirection: 'row',
@@ -389,7 +413,7 @@ const styles = StyleSheet.create({
   timeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#F3E5F5',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
@@ -399,7 +423,7 @@ const styles = StyleSheet.create({
   },
   time: {
     fontSize: 14,
-    color: '#2563EB',
+    color: '#9C27B0',
     fontWeight: '500',
   },
   detailsContainer: {
@@ -439,7 +463,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   viewAllButton: {
-    backgroundColor: '#2563EB',
     borderRadius: 8,
     elevation: 0,
     paddingHorizontal: 16,
@@ -463,12 +486,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   requestBadge: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: '#E91E63',
   },
   requestsButton: {
     marginTop: 12,
     marginBottom: 8,
-    backgroundColor: '#2563EB',
     borderRadius: 8,
     elevation: 0,
     paddingVertical: 8,

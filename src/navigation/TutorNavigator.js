@@ -1,9 +1,9 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import { useTheme } from 'react-native-paper';
+import { useTheme, DefaultTheme } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 // Import screens
@@ -33,18 +33,25 @@ const ScheduleStack = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: true
+        headerShown: true,
+        headerStyle: {
+          backgroundColor: '#9C27B0',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
       }}
     >
       <Stack.Screen 
         name="TutorAvailability" 
         component={TutorAvailabilityScreen}
-        options={{ headerTitle: 'Set Availability' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen 
         name="ManageSessions" 
         component={ManageSessionsScreen}
-        options={{ headerTitle: 'Manage Sessions' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen 
         name="SessionRequests" 
@@ -65,7 +72,14 @@ const MessagesStack = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: true
+        headerShown: true,
+        headerStyle: {
+          backgroundColor: '#9C27B0',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
       }}
     >
       <Stack.Screen 
@@ -87,7 +101,14 @@ const ProfileStack = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: true
+        headerShown: true,
+        headerStyle: {
+          backgroundColor: '#9C27B0',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
       }}
     >
       <Stack.Screen 
@@ -133,8 +154,26 @@ const TutorNavigator = () => {
 
           return <MaterialIcons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: '#9C27B0',
+        tabBarInactiveTintColor: '#9E9E9E',
+        tabBarStyle: {
+          height: Platform.OS === 'ios' ? 90 : 70,
+          paddingTop: 8,
+          paddingBottom: Platform.OS === 'ios' ? 30 : 10,
+          backgroundColor: '#FFFFFF',
+          borderTopColor: '#E5E5E5',
+          borderTopWidth: 1,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 10,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+          marginBottom: Platform.OS === 'ios' ? 0 : 4,
+        },
         headerShown: false,
       })}
     >

@@ -21,17 +21,42 @@ const theme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    primary: '#2563EB',         // Primary Blue
-    secondary: '#0EA5E9',       // Secondary Teal
-    accent: '#F59E0B',          // Accent Orange
-    success: '#10B981',         // Accent Green
-    background: '#F8FAFC',      // Light Blue-Gray Background
+    primary: '#9C27B0',         // Primary Purple (matches logo)
+    secondary: '#E91E63',       // Secondary Pink (matches logo)
+    accent: '#673AB7',          // Accent Deep Purple (matches logo)
+    success: '#4CAF50',         // Success Green
+    background: '#F8F9FA',      // Light Background
     surface: '#FFFFFF',         // White Surface
-    text: '#1F2937',            // Dark Gray Text
-    secondaryText: '#6B7280',   // Medium Gray Secondary Text
-    error: '#F43F5E',           // Error Red
-    notification: '#F59E0B',    // Notification Orange (same as accent)
-    placeholder: '#9CA3AF',     // Placeholder Text
+    text: '#212121',            // Dark Text
+    secondaryText: '#757575',   // Medium Gray Secondary Text
+    error: '#F44336',           // Error Red
+    notification: '#9C27B0',    // Notification Purple (same as primary)
+    placeholder: '#BDBDBD',     // Light Gray Placeholder Text
+    card: '#FFFFFF',            // Card Background
+    border: '#E0E0E0',          // Border Color
+  },
+  roundness: 12,                // More modern rounded corners
+  animation: {
+    scale: 1.0,                 // Default animation scale
+  },
+  fonts: {
+    ...DefaultTheme.fonts,
+    regular: {
+      fontFamily: 'System',
+      fontWeight: '400',
+    },
+    medium: {
+      fontFamily: 'System',
+      fontWeight: '500',
+    },
+    light: {
+      fontFamily: 'System',
+      fontWeight: '300',
+    },
+    thin: {
+      fontFamily: 'System',
+      fontWeight: '100',
+    },
   },
 };
 

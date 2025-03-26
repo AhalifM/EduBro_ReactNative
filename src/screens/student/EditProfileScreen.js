@@ -168,7 +168,7 @@ const EditProfileScreen = ({ navigation }) => {
             <View style={styles.subjectsSection}>
               <Text style={styles.sectionTitle}>Subjects I'm Interested In</Text>
               {loadingSubjects ? (
-                <ActivityIndicator size="small" color="#2196F3" />
+                <ActivityIndicator size="small" color="#9C27B0" />
               ) : (
                 <View style={styles.chipsContainer}>
                   {subjects.map(subject => (
@@ -198,22 +198,23 @@ const EditProfileScreen = ({ navigation }) => {
 
             <View style={styles.buttonContainer}>
               <Button
+                mode="contained"
+                onPress={handleSave}
+                style={styles.saveButton}
+                buttonColor="#9C27B0"
+                disabled={loading}
+                loading={loading}
+              >
+                Save Changes
+              </Button>
+              <Button
                 mode="outlined"
                 onPress={() => navigation.goBack()}
-                style={[styles.button, styles.cancelButton]}
+                style={styles.cancelButton}
+                textColor="#9C27B0"
                 disabled={loading}
               >
                 Cancel
-              </Button>
-              
-              <Button
-                mode="contained"
-                onPress={handleSave}
-                style={[styles.button, styles.saveButton]}
-                loading={loading}
-                disabled={loading}
-              >
-                Save
               </Button>
             </View>
           </View>
@@ -226,21 +227,28 @@ const EditProfileScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F8F9FA',
   },
   scrollContainer: {
-    flexGrow: 1,
+    padding: 16,
   },
   header: {
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    marginVertical: 20,
   },
   avatarContainer: {
-    marginVertical: 10,
-    position: 'relative',
+    marginBottom: 16,
+    borderRadius: 60,
+    padding: 4,
+    backgroundColor: 'white',
+    shadowColor: "#9C27B0",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   note: {
     marginTop: 10,
@@ -263,11 +271,11 @@ const styles = StyleSheet.create({
   button: {
     width: '48%',
   },
-  cancelButton: {
-    borderColor: '#999',
-  },
   saveButton: {
-    backgroundColor: '#4a90e2',
+    marginBottom: 16,
+  },
+  cancelButton: {
+    borderColor: '#9C27B0',
   },
   subjectsSection: {
     marginTop: 20,
@@ -290,13 +298,14 @@ const styles = StyleSheet.create({
     borderColor: '#2196F3',
   },
   selectedChip: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#F3E5F5',
+    borderColor: '#9C27B0',
   },
   chipText: {
     color: '#2196F3',
   },
   selectedChipText: {
-    color: '#fff',
+    color: '#9C27B0',
   },
   helperText: {
     fontSize: 12,

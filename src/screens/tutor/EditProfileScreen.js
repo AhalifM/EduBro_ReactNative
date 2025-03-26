@@ -188,22 +188,23 @@ const EditProfileScreen = ({ navigation }) => {
             
             <View style={styles.buttonContainer}>
               <Button
-                mode="outlined"
-                onPress={() => navigation.goBack()}
-                style={[styles.button, styles.cancelButton]}
-                disabled={loading}
-              >
-                Cancel
-              </Button>
-              
-              <Button
                 mode="contained"
                 onPress={handleSave}
-                style={[styles.button, styles.saveButton]}
+                style={styles.saveButton}
+                buttonColor="#9C27B0"
                 loading={loading}
                 disabled={loading}
               >
-                Save
+                Save Changes
+              </Button>
+              <Button
+                mode="outlined"
+                onPress={() => navigation.goBack()}
+                style={styles.cancelButton}
+                textColor="#9C27B0"
+                disabled={loading}
+              >
+                Cancel
               </Button>
             </View>
           </View>
@@ -216,48 +217,47 @@ const EditProfileScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F8F9FA',
   },
   scrollContainer: {
-    flexGrow: 1,
+    padding: 16,
   },
   header: {
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    marginVertical: 20,
   },
   avatarContainer: {
-    marginVertical: 10,
-    position: 'relative',
+    marginBottom: 16,
+    borderRadius: 60,
+    padding: 4,
+    backgroundColor: 'white',
+    shadowColor: "#9C27B0",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   note: {
-    marginTop: 10,
-    color: '#666',
+    marginTop: 8,
     fontSize: 14,
+    color: '#9E9E9E',
     fontStyle: 'italic',
   },
   formContainer: {
-    padding: 20,
-  },
-  input: {
-    marginBottom: 5,
-    backgroundColor: '#fff',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     marginTop: 20,
   },
-  button: {
-    width: '48%',
-  },
-  cancelButton: {
-    borderColor: '#999',
+  input: {
+    marginBottom: 8,
+    backgroundColor: '#FFFFFF',
   },
   saveButton: {
-    backgroundColor: '#4a90e2',
+    marginBottom: 16,
+  },
+  cancelButton: {
+    borderColor: '#9C27B0',
   },
 });
 

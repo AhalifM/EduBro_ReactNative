@@ -50,7 +50,7 @@ const TutorCalendar = React.memo(({ navigation }) => {
           availabilityData.forEach(dateData => {
             marked[dateData.date] = {
               marked: true,
-              dotColor: '#2196F3',
+              dotColor: '#9C27B0',
               selected: dateData.date === selectedDate,
               selectedColor: dateData.date === selectedDate ? '#E6F0FA' : undefined
             };
@@ -147,7 +147,7 @@ const TutorCalendar = React.memo(({ navigation }) => {
       newMarkedDates[dateString] = {
         ...(newMarkedDates[dateString] || {}),
         marked: true,
-        dotColor: '#2196F3',
+        dotColor: '#9C27B0',
         selected: true,
         selectedColor: '#E6F0FA'
       };
@@ -174,7 +174,7 @@ const TutorCalendar = React.memo(({ navigation }) => {
       const endTime = `${nextHour.toString().padStart(2, '0')}:00`;
       
       // Check if the current slot is available by looking through the available slots array
-      const slotObj = availableSlots.find(slot => slot.startTime === timeSlot);
+      const slotObj = availableSlots?.find(slot => slot?.startTime === timeSlot);
       const isSlotAvailable = !!slotObj;
       
       let result;
@@ -190,9 +190,11 @@ const TutorCalendar = React.memo(({ navigation }) => {
       if (result.success) {
         // Refresh slots for the selected date - use functional updates
         setAvailableSlots(prevSlots => {
+          if (!prevSlots) return [];
+          
           if (isSlotAvailable) {
             // Remove the slot
-            return prevSlots.filter(slot => slot.startTime !== timeSlot);
+            return prevSlots.filter(slot => slot?.startTime !== timeSlot);
           } else {
             // Add the slot
             return [...prevSlots, { 
@@ -212,11 +214,11 @@ const TutorCalendar = React.memo(({ navigation }) => {
             newMarkedDates[selectedDate] = {
               ...(prevMarkedDates[selectedDate] || {}),
               marked: true,
-              dotColor: '#2196F3',
+              dotColor: '#9C27B0',
               selected: true,
               selectedColor: '#E6F0FA'
             };
-          } else if (availableSlots.length === 1) {
+          } else if (availableSlots?.length === 1) {
             // If removing the last slot, unmark the date but keep it selected
             newMarkedDates[selectedDate] = {
               selected: true,
@@ -241,30 +243,37 @@ const TutorCalendar = React.memo(({ navigation }) => {
   const timeSlots = useMemo(() => {
     return TIME_SLOTS.map((slot) => {
       // Find if slot exists in availableSlots and is not booked
-      const slotObj = availableSlots.find(s => s.startTime === slot);
+      const slotObj = availableSlots?.find(s => s?.startTime === slot);
       const isAvailable = slotObj && !slotObj.isBooked;
+      const isBooked = slotObj && slotObj.isBooked;
       
       return (
         <TouchableOpacity
           key={slot}
           style={[
             styles.timeSlot,
-            isAvailable ? styles.availableSlot : styles.unavailableSlot
+            isAvailable && styles.availableSlot,
+            isBooked && styles.bookedSlot,
+            !isAvailable && !isBooked && styles.unavailableSlot
           ]}
           onPress={() => handleSlotToggle(slot)}
-          disabled={isLoading || (slotObj && slotObj.isBooked)}
+          disabled={isLoading || isBooked}
         >
           <Text style={[
             styles.timeSlotText,
-            isAvailable ? styles.availableSlotText : styles.unavailableSlotText
+            isAvailable && styles.availableSlotText,
+            isBooked && styles.bookedSlotText,
+            !isAvailable && !isBooked && styles.unavailableSlotText
           ]}>
             {slot}
           </Text>
+          
           {isAvailable && (
-            <MaterialIcons name="check" size={20} color="#fff" />
+            <MaterialIcons name="check-circle" size={18} color="#9C27B0" style={styles.slotIcon} />
           )}
-          {slotObj && slotObj.isBooked && (
-            <Text style={styles.bookedText}>Booked</Text>
+          
+          {isBooked && (
+            <MaterialIcons name="event-busy" size={18} color="#E91E63" style={styles.slotIcon} />
           )}
         </TouchableOpacity>
       );
@@ -275,17 +284,17 @@ const TutorCalendar = React.memo(({ navigation }) => {
   const calendarTheme = useMemo(() => ({
     backgroundColor: 'transparent',
     calendarBackground: 'transparent',
-    textSectionTitleColor: '#1F2937',
-    selectedDayBackgroundColor: '#2563EB',
+    textSectionTitleColor: '#424242',
+    selectedDayBackgroundColor: '#9C27B0',
     selectedDayTextColor: '#FFFFFF',
-    todayTextColor: '#2563EB',
-    todayBackgroundColor: '#E0F2FE',
-    dayTextColor: '#4B5563',
-    textDisabledColor: '#CBD5E1',
-    dotColor: '#2563EB',
+    todayTextColor: '#E91E63',
+    todayBackgroundColor: '#FCE4EC',
+    dayTextColor: '#424242',
+    textDisabledColor: '#BDBDBD',
+    dotColor: '#9C27B0',
     selectedDotColor: '#FFFFFF',
-    arrowColor: '#2563EB',
-    monthTextColor: '#1F2937',
+    arrowColor: '#9C27B0',
+    monthTextColor: '#424242',
     textMonthFontWeight: 'bold',
     textDayFontSize: 14,
     textMonthFontSize: 16,
@@ -301,7 +310,7 @@ const TutorCalendar = React.memo(({ navigation }) => {
       monthText: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#1F2937',
+        color: '#424242',
       },
     }
   }), []);
@@ -345,14 +354,14 @@ const TutorCalendar = React.memo(({ navigation }) => {
         <Card style={styles.timeSlotsCard}>
           <View style={styles.selectedDateHeader}>
             <View style={styles.selectedDateTextContainer}>
-              <MaterialIcons name="event" size={20} color="#2563EB" style={styles.selectedDateIcon} />
+              <MaterialIcons name="event" size={20} color="#9C27B0" style={styles.selectedDateIcon} />
               <Text style={styles.selectedDateText}>
                 {new Date(selectedDate).toDateString()}
               </Text>
             </View>
             
             {isLoading && (
-              <ActivityIndicator size="small" color="#2563EB" style={styles.loadingIndicator} />
+              <ActivityIndicator size="small" color="#9C27B0" style={styles.loadingIndicator} />
             )}
           </View>
           
@@ -366,64 +375,28 @@ const TutorCalendar = React.memo(({ navigation }) => {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.timeSlotsContainer}>
-              {TIME_SLOTS.map((slot) => {
-                // Find if slot exists in availableSlots and is not booked
-                const slotObj = availableSlots.find(s => s.startTime === slot);
-                const isAvailable = slotObj && !slotObj.isBooked;
-                const isBooked = slotObj && slotObj.isBooked;
-                
-                return (
-                  <TouchableOpacity
-                    key={slot}
-                    style={[
-                      styles.timeSlot,
-                      isAvailable && styles.availableSlot,
-                      isBooked && styles.bookedSlot,
-                      !isAvailable && !isBooked && styles.unavailableSlot
-                    ]}
-                    onPress={() => handleSlotToggle(slot)}
-                    disabled={isLoading || isBooked}
-                  >
-                    <Text style={[
-                      styles.timeSlotText,
-                      isAvailable && styles.availableSlotText,
-                      isBooked && styles.bookedSlotText,
-                      !isAvailable && !isBooked && styles.unavailableSlotText
-                    ]}>
-                      {slot}
-                    </Text>
-                    
-                    {isAvailable && (
-                      <MaterialIcons name="check-circle" size={18} color="#10B981" style={styles.slotIcon} />
-                    )}
-                    
-                    {isBooked && (
-                      <MaterialIcons name="event-busy" size={18} color="#F43F5E" style={styles.slotIcon} />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
+              {timeSlots}
             </View>
           </ScrollView>
           
           <View style={styles.legendContainer}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
+              <View style={[styles.legendDot, { backgroundColor: '#9C27B0' }]} />
               <Text style={styles.legendText}>Available</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#F43F5E' }]} />
+              <View style={[styles.legendDot, { backgroundColor: '#E91E63' }]} />
               <Text style={styles.legendText}>Booked</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#E5E7EB' }]} />
+              <View style={[styles.legendDot, { backgroundColor: '#E0E0E0' }]} />
               <Text style={styles.legendText}>Unavailable</Text>
             </View>
           </View>
         </Card>
       ) : (
         <Card style={styles.noDateCard}>
-          <MaterialIcons name="calendar-today" size={40} color="#6B7280" style={styles.noDateIcon} />
+          <MaterialIcons name="calendar-today" size={40} color="#9E9E9E" style={styles.noDateIcon} />
           <Text style={styles.noDateText}>
             Select a date to set your availability
           </Text>
@@ -442,8 +415,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 20,
-    elevation: 3,
-    shadowColor: '#1F2937',
+    elevation: 2,
+    shadowColor: 'rgba(0,0,0,0.2)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -452,23 +425,23 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   calendarHeader: {
-    backgroundColor: '#E0F2FE', 
+    backgroundColor: '#F3E5F5', 
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#E1BEE7',
   },
   calendarHeaderText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#1F2937',
+    color: '#212121',
     textAlign: 'center',
   },
   timeSlotsCard: {
     borderRadius: 16,
     overflow: 'hidden',
     padding: 20,
-    elevation: 3,
-    shadowColor: '#1F2937',
+    elevation: 2,
+    shadowColor: 'rgba(0,0,0,0.2)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -523,29 +496,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   unavailableSlot: {
-    backgroundColor: '#F9FAFB',
-    borderColor: '#E5E7EB',
+    backgroundColor: '#FAFAFA',
+    borderColor: '#E0E0E0',
   },
   availableSlot: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#10B981',
+    backgroundColor: '#F3E5F5',
+    borderColor: '#9C27B0',
   },
   bookedSlot: {
-    backgroundColor: '#FFF1F2',
-    borderColor: '#F43F5E',
+    backgroundColor: '#FCE4EC',
+    borderColor: '#E91E63',
   },
   timeSlotText: {
     fontSize: 16,
     fontWeight: '500',
   },
   unavailableSlotText: {
-    color: '#6B7280',
+    color: '#9E9E9E',
   },
   availableSlotText: {
-    color: '#10B981',
+    color: '#9C27B0',
   },
   bookedSlotText: {
-    color: '#F43F5E',
+    color: '#E91E63',
   },
   slotIcon: {
     marginLeft: 8,

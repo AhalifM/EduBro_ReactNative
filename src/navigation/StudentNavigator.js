@@ -1,8 +1,9 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import { useTheme } from 'react-native-paper';
+import { useTheme, DefaultTheme } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Platform } from 'react-native';
 
 // Import screens
 import StudentProfileScreen from '../screens/student/StudentProfileScreen';
@@ -23,6 +24,13 @@ const TutorsStack = () => {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
+        headerStyle: {
+          backgroundColor: '#9C27B0',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
       }}
     >
       <Stack.Screen name="FindTutor" component={FindTutorScreen} />
@@ -45,6 +53,13 @@ const MessagesStack = () => {
     <Stack.Navigator
       screenOptions={{
         headerShown: true,
+        headerStyle: {
+          backgroundColor: '#9C27B0',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
       }}
     >
       <Stack.Screen 
@@ -67,6 +82,13 @@ const SessionsStack = () => {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
+        headerStyle: {
+          backgroundColor: '#9C27B0',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
       }}
     >
       <Stack.Screen name="SessionsList" component={MySessionsScreen} />
@@ -80,6 +102,13 @@ const ProfileStack = () => {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
+        headerStyle: {
+          backgroundColor: '#9C27B0',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
       }}
     >
       <Stack.Screen name="Profile" component={StudentProfileScreen} />
@@ -127,8 +156,26 @@ const StudentNavigator = () => {
 
           return <MaterialIcons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: '#9C27B0',
+        tabBarInactiveTintColor: '#9E9E9E',
+        tabBarStyle: {
+          height: Platform.OS === 'ios' ? 90 : 70,
+          paddingTop: 8,
+          paddingBottom: Platform.OS === 'ios' ? 30 : 10,
+          backgroundColor: '#FFFFFF',
+          borderTopColor: '#E5E5E5',
+          borderTopWidth: 1,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 10,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+          marginBottom: Platform.OS === 'ios' ? 0 : 4,
+        },
         headerShown: false,
       })}
     >

@@ -128,7 +128,7 @@ const TutorProfileScreen = ({ navigation }) => {
       <Chip 
         key={`${subject.id}`}
         style={styles.subjectChip}
-        textStyle={{ color: '#2563EB' }}
+        textStyle={{ color: '#9C27B0' }}
       >
         {subject.name || 'Unknown Subject'}
       </Chip>
@@ -143,22 +143,22 @@ const TutorProfileScreen = ({ navigation }) => {
           <Text style={styles.cardTitle}>Your Teaching Stats</Text>
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
-              <View style={[styles.statBadge, { backgroundColor: '#2563EB20' }]}>
-                <MaterialIcons name="school" size={24} color="#2563EB" />
+              <View style={[styles.statBadge, { backgroundColor: '#9C27B020' }]}>
+                <MaterialIcons name="school" size={24} color="#9C27B0" />
               </View>
               <Text style={styles.statNumber}>{sessionsCompleted}</Text>
               <Text style={styles.statLabel}>Sessions</Text>
             </View>
             <View style={styles.statItem}>
-              <View style={[styles.statBadge, { backgroundColor: '#F59E0B20' }]}>
-                <MaterialIcons name="people" size={24} color="#F59E0B" />
+              <View style={[styles.statBadge, { backgroundColor: '#E91E6320' }]}>
+                <MaterialIcons name="people" size={24} color="#E91E63" />
               </View>
               <Text style={styles.statNumber}>{studentsHelped}</Text>
               <Text style={styles.statLabel}>Students</Text>
             </View>
             <View style={styles.statItem}>
-              <View style={[styles.statBadge, { backgroundColor: '#10B98120' }]}>
-                <MaterialIcons name="book" size={24} color="#10B981" />
+              <View style={[styles.statBadge, { backgroundColor: '#673AB720' }]}>
+                <MaterialIcons name="book" size={24} color="#673AB7" />
               </View>
               <Text style={styles.statNumber}>{subjects.length}</Text>
               <Text style={styles.statLabel}>Subjects</Text>
@@ -176,11 +176,11 @@ const TutorProfileScreen = ({ navigation }) => {
         <Card.Content>
           <View style={styles.cardHeaderRow}>
             <Text style={styles.cardTitle}>Upcoming Sessions</Text>
-            <MaterialIcons name="event" size={24} color="#2563EB" />
+            <MaterialIcons name="event" size={24} color="#9C27B0" />
           </View>
           {loadingSessions ? (
             <View style={styles.loadingSessionContainer}>
-              <ActivityIndicator size="small" color="#2563EB" />
+              <ActivityIndicator size="small" color="#9C27B0" />
               <Text style={styles.loadingText}>Loading sessions...</Text>
             </View>
           ) : (
@@ -188,7 +188,7 @@ const TutorProfileScreen = ({ navigation }) => {
               <MaterialIcons 
                 name={todaySessionCount > 0 ? "event-available" : "event-busy"} 
                 size={36} 
-                color={todaySessionCount > 0 ? "#10B981" : "#6B7280"} 
+                color={todaySessionCount > 0 ? "#4CAF50" : "#9E9E9E"} 
                 style={styles.sessionStatusIcon}
               />
               <Text style={styles.sessionCountText}>
@@ -201,7 +201,7 @@ const TutorProfileScreen = ({ navigation }) => {
           <Button 
             mode="contained" 
             style={styles.viewAllButton}
-            buttonColor="#2563EB"
+            buttonColor="#9C27B0"
             textColor="#FFFFFF"
             onPress={() => navigation.navigate('Schedule', { screen: 'ManageSessions' })}
             disabled={loadingSessions}
@@ -242,7 +242,7 @@ const TutorProfileScreen = ({ navigation }) => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
+          <ActivityIndicator size="large" color="#9C27B0" />
           <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
       </SafeAreaView>
@@ -257,15 +257,15 @@ const TutorProfileScreen = ({ navigation }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#2563EB']}
-            tintColor={'#2563EB'}
+            colors={['#9C27B0']}
+            tintColor={'#9C27B0'}
           />
         }
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerContainer}>
           <LinearGradient
-            colors={['#2563EB', '#0EA5E9']}
+            colors={['#9C27B0', '#E91E63']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0.7 }}
             style={styles.headerGradient}
@@ -295,7 +295,7 @@ const TutorProfileScreen = ({ navigation }) => {
                 mode="contained" 
                 style={styles.editProfileButton}
                 buttonColor="#FFFFFF"
-                textColor="#2563EB"
+                textColor="#9C27B0"
                 icon="account-edit"
                 onPress={() => navigation.navigate('EditProfile')}
               >
@@ -311,7 +311,7 @@ const TutorProfileScreen = ({ navigation }) => {
           <Card.Content>
             <View style={styles.cardHeaderRow}>
               <Text style={styles.cardTitle}>Teaching Subjects</Text>
-              <MaterialIcons name="category" size={24} color="#2563EB" />
+              <MaterialIcons name="category" size={24} color="#9C27B0" />
             </View>
             {subjects.length > 0 ? (
               <View style={styles.subjectsContainer}>
@@ -319,7 +319,7 @@ const TutorProfileScreen = ({ navigation }) => {
               </View>
             ) : (
               <View style={styles.emptyStateContainer}>
-                <MaterialIcons name="category" size={40} color="#6B7280" />
+                <MaterialIcons name="category" size={40} color="#9E9E9E" />
                 <Text style={styles.emptyText}>
                   You haven't added any subjects yet. Add subjects to be visible to students.
                 </Text>
@@ -328,7 +328,7 @@ const TutorProfileScreen = ({ navigation }) => {
             <Button 
               mode="outlined" 
               style={styles.editButton}
-              textColor="#2563EB"
+              textColor="#9C27B0"
               icon={subjects.length > 0 ? "pencil" : "plus"}
               onPress={() => navigation.navigate('EditSubjects')}
             >
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
     margin: 16,
     marginTop: Platform.OS === 'ios' ? 44 : 16,
     elevation: 4,
-    shadowColor: '#2563EB',
+    shadowColor: '#9C27B0',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -516,11 +516,11 @@ const styles = StyleSheet.create({
   },
   subjectChip: {
     margin: 4,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#F3E5F5',
   },
   editButton: {
     marginTop: 8,
-    borderColor: '#2563EB',
+    borderColor: '#9C27B0',
   },
   sessionStatusContainer: {
     alignItems: 'center',

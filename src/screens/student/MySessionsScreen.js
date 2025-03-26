@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
-  Keyboard
+  Keyboard,
+  ScrollView
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
@@ -20,120 +21,89 @@ import { getUserSessions, cancelSession, submitReview, updateSessionStatus } fro
 import { completeSessionAndReleasePayment, processRefund } from '../../utils/paymentUtils';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import { Button, Card, Title, Paragraph, useTheme, Chip } from 'react-native-paper';
 
 const MySessionsScreen = ({ navigation }) => {
   const { user } = useAuth();
   const [sessions, setSessions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('upcoming');
+  const [filter, setFilter] = useState('upcoming'); // upcoming, past, all
   const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
   const [rating, setRating] = useState(0);
   const [reviewComment, setReviewComment] = useState('');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const theme = useTheme();
   
-  // Use useFocusEffect to fetch sessions when the screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      if (user?.uid) {
-        console.log('Fetching sessions on focus with active tab:', activeTab);
-        fetchSessions();
-      }
-      
-      return () => {
-        // Clean up function if needed
-      };
-    }, [user, activeTab])
-  );
-  
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
+    if (!user?.uid) return;
+    
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      
-      // Get all sessions for the user as student
       const result = await getUserSessions(user.uid, 'student');
       
       if (result.success) {
-        console.log('Fetched sessions:', result.sessions.length);
-        
-        // Sort by date and time
-        const sortedSessions = result.sessions.sort((a, b) => {
-          const dateA = new Date(`${a.date}T${a.startTime}`);
-          const dateB = new Date(`${b.date}T${b.startTime}`);
-          return dateA - dateB;
-        });
-        
-        const now = new Date();
-        console.log('Current time:', now.toISOString());
-        
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        console.log('Today (start of day):', today.toISOString());
-        
-        let filteredSessions;
-        
-        if (activeTab === 'upcoming') {
-          // Filter future sessions that are confirmed, rescheduled OR pending
-          // Also check if the session time has already passed today
-          filteredSessions = sortedSessions.filter(session => {
-            const sessionDate = new Date(session.date);
-            
-            // Create a proper date-time object by combining date and time
-            const [hours, minutes] = session.startTime.split(':').map(Number);
-            const sessionDateTime = new Date(session.date);
-            sessionDateTime.setHours(hours, minutes, 0, 0);
-            
-            console.log(`Session ${session.id} DateTime:`, sessionDateTime.toISOString(), 'Now:', now.toISOString(), 'IsInFuture:', sessionDateTime > now);
-            
-            // Session is in the future and has the correct status
-            const isInFuture = sessionDateTime > now;
-            const hasCorrectStatus = (session.status === 'confirmed' || 
-                             session.status === 'rescheduled' || 
-                             session.status === 'pending');
-                             
-            return isInFuture && hasCorrectStatus;
-          });
-          console.log('Upcoming filtered sessions:', filteredSessions.length);
-        } else if (activeTab === 'cancelled') {
-          // Filter cancelled sessions
-          filteredSessions = sortedSessions.filter(session => {
-            return session.status === 'cancelled';
-          });
-          console.log('Cancelled filtered sessions:', filteredSessions.length);
-        } else {
-          // Past or completed sessions
-          // Include sessions that were today but time has passed
-          filteredSessions = sortedSessions.filter(session => {
-            // Create a proper date-time object by combining date and time
-            const [hours, minutes] = session.startTime.split(':').map(Number);
-            const sessionDateTime = new Date(session.date);
-            sessionDateTime.setHours(hours, minutes, 0, 0);
-            
-            console.log(`Past session ${session.id} DateTime:`, sessionDateTime.toISOString(), 'Now:', now.toISOString(), 'IsInPast:', sessionDateTime <= now);
-            
-            // Either the session is in the past or it's completed
-            const isInPast = sessionDateTime <= now;
-            const isNotCancelled = session.status !== 'cancelled';
-            const isCompleted = session.status === 'completed';
-            
-            return (isInPast && isNotCancelled) || isCompleted;
-          });
-          console.log('Past filtered sessions:', filteredSessions.length);
-        }
-        
-        setSessions(filteredSessions);
+        setSessions(result.sessions);
       }
     } catch (error) {
       console.error('Error fetching sessions:', error);
-      Alert.alert('Error', 'Failed to load sessions');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.uid]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      
+      const load = async () => {
+        if (isMounted) {
+          await fetchSessions();
+        }
+      };
+      
+      load();
+      
+      return () => {
+        isMounted = false;
+      };
+    }, [fetchSessions])
+  );
+
+  const filteredSessions = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return sessions.filter(session => {
+      const sessionDate = new Date(session.date);
+      
+      if (filter === 'upcoming') {
+        return sessionDate >= today && (session.status === 'confirmed' || session.status === 'pending');
+      } else if (filter === 'past') {
+        return sessionDate < today || session.status === 'cancelled';
+      } else {
+        return true; // all
+      }
+    }).sort((a, b) => {
+      // Sort by date
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      
+      if (dateA > dateB) return filter === 'past' ? -1 : 1;
+      if (dateA < dateB) return filter === 'past' ? 1 : -1;
+      
+      // If same date, sort by time
+      const timeA = a.startTime.replace(':', '');
+      const timeB = b.startTime.replace(':', '');
+      return filter === 'past' ? timeB - timeA : timeA - timeB;
+    });
+  }, [sessions, filter]);
   
   const handleTabChange = (tabName) => {
     console.log('Changing tab to:', tabName);
-    setActiveTab(tabName);
+    setFilter(tabName);
   };
   
   const handleCancelSession = async (session) => {
@@ -382,336 +352,377 @@ const MySessionsScreen = ({ navigation }) => {
     );
   };
   
+  const renderStatusChip = (status) => {
+    let color, icon, label;
+    
+    switch (status) {
+      case 'confirmed':
+        color = '#4CAF50';
+        icon = 'check-circle';
+        label = 'Confirmed';
+        break;
+      case 'pending':
+        color = '#FF9800';
+        icon = 'pending';
+        label = 'Pending';
+        break;
+      case 'cancelled':
+        color = '#F44336';
+        icon = 'cancel';
+        label = 'Cancelled';
+        break;
+      default:
+        color = '#9E9E9E';
+        icon = 'help';
+        label = 'Unknown';
+    }
+    
+    return (
+      <Chip 
+        icon={() => <MaterialIcons name={icon} size={16} color={color} />}
+        style={[styles.statusChip, { borderColor: color }]}
+        textStyle={{ color }}
+        mode="outlined"
+      >
+        {label}
+      </Chip>
+    );
+  };
+  
   const renderSessionItem = ({ item }) => {
     const sessionDate = new Date(item.date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    // Create a date-time object for time comparison
-    const [hours, minutes] = item.startTime.split(':').map(Number);
-    const sessionDateTime = new Date(item.date);
-    sessionDateTime.setHours(hours, minutes, 0, 0);
-    const now = new Date();
-    
-    // Check if this session has passed but not marked as completed
-    const hasPassed = sessionDateTime < now;
-    
-    const isUpcoming = sessionDateTime > now;
-    const isPast = hasPassed;
-    const isCompleted = item.status === 'completed';
-    const isCancelled = item.status === 'cancelled';
-    const isRescheduled = item.status === 'rescheduled';
-    const isPending = item.status === 'pending';
-    
     const formattedDate = sessionDate.toLocaleDateString(undefined, {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
-      year: 'numeric'
     });
-    
-    return (
-      <View 
-        style={[
-          styles.sessionCard,
-          isCancelled && styles.cancelledCard,
-          isRescheduled && styles.rescheduledCard
-        ]}
-      >
-        <View style={styles.sessionHeader}>
-          <Text style={styles.sessionSubject}>{item.subject}</Text>
-          {isCancelled && (
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>Cancelled</Text>
-            </View>
-          )}
-          {isCompleted && (
-            <View style={[styles.statusBadge, styles.completedBadge]}>
-              <Text style={styles.statusText}>Completed</Text>
-            </View>
-          )}
-          {isPending && !hasPassed && (
-            <View style={[styles.statusBadge, styles.pendingBadge]}>
-              <Text style={styles.statusText}>Pending</Text>
-            </View>
-          )}
-          {isRescheduled && (
-            <View style={[styles.statusBadge, styles.rescheduledBadge]}>
-              <Text style={styles.statusText}>Rescheduled</Text>
-            </View>
-          )}
-          {isPending && hasPassed && (
-            <View style={[styles.statusBadge, styles.pastPendingBadge]}>
-              <Text style={styles.statusText}>Needs Completion</Text>
-            </View>
-          )}
-        </View>
-        
-        <View style={styles.sessionDetails}>
-          <View style={styles.detailRow}>
-            <MaterialIcons name="person" size={20} color="#666" />
-            <Text style={styles.detailText}>Tutor: {item.tutorName}</Text>
-          </View>
-          
-          <View style={styles.detailRow}>
-            <MaterialIcons name="event" size={20} color="#666" />
-            <Text style={styles.detailText}>Date: {formattedDate}</Text>
-          </View>
-          
-          <View style={styles.detailRow}>
-            <MaterialIcons name="access-time" size={20} color="#666" />
-            <Text style={styles.detailText}>
-              Time: {item.startTime} - {item.endTime}
-            </Text>
-          </View>
-          
-          {item.tutorPhoneNumber && (
-            <View style={styles.detailRow}>
-              <MaterialIcons name="phone" size={20} color="#666" />
-              <Text style={styles.detailText}>
-                Contact: {item.tutorPhoneNumber}
-              </Text>
-            </View>
-          )}
-          
-          <View style={styles.detailRow}>
-            <MaterialIcons name="attach-money" size={20} color="#666" />
-            <Text style={styles.detailText}>
-              Price: ${item.hourlyRate}/hr
-            </Text>
-          </View>
-        </View>
-        
-        {isUpcoming && !isCancelled && !isRescheduled && !isPending && (
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => handleCancelSession(item)}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        )}
 
-        {isPending && !hasPassed && (
-          <View style={styles.statusMessage}>
-            <Text style={styles.pendingText}>
-              Waiting for tutor to approve this session
-            </Text>
-          </View>
-        )}
-        
-        {isPending && hasPassed && (
-          <View style={styles.statusMessage}>
-            <Text style={styles.pendingText}>
-              This session has passed but hasn't been marked as completed. 
-              You can complete it using the button below.
-            </Text>
-          </View>
-        )}
-        
-        {isRescheduled && (
-          <View style={styles.rescheduledContainer}>
-            <Text style={styles.rescheduledText}>
-              Your tutor has rescheduled this session. Please review the new time.
-            </Text>
-            <View style={styles.actionButtons}>
-              <TouchableOpacity
-                style={[styles.acceptButton, {backgroundColor: '#4CAF50'}]}
-                onPress={() => handleAcceptReschedule(item)}
-              >
-                <Text style={styles.acceptButtonText}>Accept</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.declineButton}
-                onPress={() => handleDeclineReschedule(item)}
-              >
-                <Text style={styles.declineButtonText}>Decline</Text>
-              </TouchableOpacity>
+    const getStatusInfo = (status) => {
+      switch (status) {
+        case 'confirmed':
+          return {
+            color: '#9C27B0',
+            bgColor: '#9C27B015',
+            icon: 'event-available',
+            text: 'Confirmed'
+          };
+        case 'completed':
+          return {
+            color: '#4CAF50',
+            bgColor: '#4CAF5015',
+            icon: 'check-circle',
+            text: 'Completed'
+          };
+        case 'pending':
+          return {
+            color: '#FF9800',
+            bgColor: '#FF980015',
+            icon: 'schedule',
+            text: 'Pending'
+          };
+        case 'cancelled':
+          return {
+            color: '#F44336',
+            bgColor: '#F4433615',
+            icon: 'cancel',
+            text: 'Cancelled'
+          };
+        case 'rescheduled':
+          return {
+            color: '#2196F3',
+            bgColor: '#2196F315',
+            icon: 'update',
+            text: 'Rescheduled'
+          };
+        default:
+          return {
+            color: '#9E9E9E',
+            bgColor: '#9E9E9E15',
+            icon: 'help',
+            text: status
+          };
+      }
+    };
+
+    const statusInfo = getStatusInfo(item.status);
+
+    return (
+      <Card key={item.id} style={styles.sessionCard} mode="elevated">
+        <Card.Content>
+          <View style={styles.cardHeader}>
+            <View>
+              <Title style={styles.subject}>{item.subject}</Title>
+              <Paragraph style={styles.dateText}>
+                {formattedDate} • {item.startTime} - {item.endTime}
+              </Paragraph>
             </View>
+            {renderStatusChip(item.status)}
           </View>
-        )}
-        
-        {isPast && isCompleted && !item.hasReview && (
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.reviewButton}
-              onPress={() => handleLeaveReview(item)}
-            >
-              <Text style={styles.reviewButtonText}>Leave Review</Text>
-            </TouchableOpacity>
+          
+          <View style={styles.tutorInfoContainer}>
+            <MaterialIcons name="person" size={20} color="#9C27B0" />
+            <Text style={styles.tutorText}>
+              {item.tutorName}
+            </Text>
           </View>
-        )}
-        
-        {isPast && !isCompleted && !isCancelled && (
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.completeButton}
-              onPress={() => handleCompleteSession(item)}
-            >
-              <Text style={styles.completeButtonText}>Complete Session</Text>
-            </TouchableOpacity>
+          
+          <View style={styles.priceContainer}>
+            <MaterialIcons name="attach-money" size={20} color="#9C27B0" />
+            <Text style={styles.priceText}>
+              ${item.hourlyRate}/hr
+            </Text>
           </View>
-        )}
-      </View>
+          
+          <View style={styles.actionsContainer}>
+            {item.status === 'confirmed' && (
+              <Button 
+                mode="contained"
+                buttonColor="#9C27B0"
+                icon="chat"
+                style={styles.actionButton}
+                onPress={() => navigation.navigate('MessagesTab', {
+                  screen: 'ChatDetails',
+                  params: { recipientId: item.tutorId, recipientName: item.tutorName }
+                })}
+              >
+                Contact Tutor
+              </Button>
+            )}
+            
+            {item.status === 'confirmed' && (
+              <Button 
+                mode="outlined"
+                style={styles.detailsButton}
+                textColor="#9C27B0"
+                onPress={() => navigation.navigate('TutorsTab', {
+                  screen: 'TutorDetail',
+                  params: { tutorId: item.tutorId }
+                })}
+              >
+                View Tutor
+              </Button>
+            )}
+            
+            {item.status === 'upcoming' && (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: '#F4433620' }]}
+                onPress={() => handleCancelSession(item)}
+              >
+                <Text style={[styles.actionButtonText, { color: '#F44336' }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            )}
+            
+            {item.status === 'rescheduled' && (
+              <>
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: '#9C27B020' }]}
+                  onPress={() => handleAcceptReschedule(item)}
+                >
+                  <Text style={[styles.actionButtonText, { color: '#9C27B0' }]}>
+                    Accept
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: '#F4433620' }]}
+                  onPress={() => handleDeclineReschedule(item)}
+                >
+                  <Text style={[styles.actionButtonText, { color: '#F44336' }]}>
+                    Decline
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+            
+            {item.status === 'past' && item.status !== 'cancelled' && !item.reviewSubmitted && (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: '#9C27B020' }]}
+                onPress={() => handleLeaveReview(item)}
+              >
+                <Text style={[styles.actionButtonText, { color: '#9C27B0' }]}>
+                  Leave Review
+                </Text>
+              </TouchableOpacity>
+            )}
+            
+            {item.status === 'past' && item.status === 'completed' && (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: '#4CAF5020' }]}
+                onPress={() => handleCompleteSession(item)}
+              >
+                <Text style={[styles.actionButtonText, { color: '#4CAF50' }]}>
+                  Complete
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </Card.Content>
+      </Card>
     );
   };
   
   const renderEmptyList = () => (
     <View style={styles.emptyContainer}>
-      <MaterialIcons name="event-busy" size={60} color="#ccc" />
-      <Text style={styles.emptyText}>
-        {activeTab === 'upcoming' 
-          ? "You don't have any upcoming sessions" 
-          : activeTab === 'cancelled'
-          ? "You don't have any cancelled sessions"
-          : "You don't have any past sessions"}
-      </Text>
-      
-      {activeTab === 'upcoming' && (
-        <TouchableOpacity
-          style={styles.findTutorButton}
-          onPress={() => navigation.navigate('TutorsTab')}
-        >
-          <Text style={styles.findTutorButtonText}>Find a Tutor</Text>
-        </TouchableOpacity>
+      {filter === 'upcoming' ? (
+        <>
+          <MaterialIcons name="event-busy" size={64} color="#9E9E9E" style={styles.emptyIcon} />
+          <Text style={styles.emptyText}>No upcoming sessions</Text>
+          <Text style={styles.emptySubText}>
+            Book a session with a tutor to get started with your learning journey
+          </Text>
+          <TouchableOpacity
+            style={styles.findTutorButton}
+            onPress={() => navigation.navigate('FindTutor')}
+          >
+            <Text style={styles.findTutorButtonText}>Find a Tutor</Text>
+          </TouchableOpacity>
+        </>
+      ) : filter === 'past' ? (
+        <>
+          <MaterialIcons name="history" size={64} color="#9E9E9E" style={styles.emptyIcon} />
+          <Text style={styles.emptyText}>No past sessions</Text>
+          <Text style={styles.emptySubText}>
+            Your completed sessions will appear here
+          </Text>
+        </>
+      ) : (
+        <>
+          <MaterialIcons name="cancel" size={64} color="#9E9E9E" style={styles.emptyIcon} />
+          <Text style={styles.emptyText}>No cancelled sessions</Text>
+          <Text style={styles.emptySubText}>
+            Sessions you cancel will appear here
+          </Text>
+        </>
       )}
     </View>
   );
   
-  if (isLoading && sessions.length === 0) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2196F3" />
-          <Text style={styles.loadingText}>Loading sessions...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-  
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.tabsContainer}>
-          <TouchableOpacity
-            style={[
-              styles.tab,
-              activeTab === 'upcoming' && styles.activeTab
-            ]}
-            onPress={() => handleTabChange('upcoming')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === 'upcoming' && styles.activeTabText
-              ]}
-            >
-              Upcoming
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[
-              styles.tab,
-              activeTab === 'past' && styles.activeTab
-            ]}
-            onPress={() => handleTabChange('past')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === 'past' && styles.activeTabText
-              ]}
-            >
-              Past
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[
-              styles.tab,
-              activeTab === 'cancelled' && styles.activeTab
-            ]}
-            onPress={() => handleTabChange('cancelled')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === 'cancelled' && styles.activeTabText
-              ]}
-            >
-              Cancelled
-            </Text>
-          </TouchableOpacity>
-        </View>
-        
-        <FlatList
-          data={sessions}
-          renderItem={renderSessionItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={renderEmptyList}
-          refreshing={isLoading}
-          onRefresh={fetchSessions}
-        />
-        
-        {/* Review Modal */}
-        <Modal
-          visible={isReviewModalVisible}
-          transparent={true}
-          animationType="slide"
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+      <StatusBar style="light" />
+      
+      <View style={styles.headerContainer}>
+        <LinearGradient
+          colors={['#9C27B0', '#E91E63']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0.7 }}
+          style={styles.headerGradient}
         >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <KeyboardAvoidingView 
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
-              style={styles.modalOverlay}
-            >
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Rate Your Experience</Text>
-                
-                {renderRatingStars()}
-                
-                <View style={styles.reviewInputContainer}>
-                  <Text style={styles.reviewInputLabel}>Comments (optional)</Text>
-                  <TextInput
-                    style={styles.reviewInput}
-                    placeholder="Share your experience with this tutor..."
-                    value={reviewComment}
-                    onChangeText={setReviewComment}
-                    multiline
-                    maxLength={500}
-                    blurOnSubmit={true}
-                    returnKeyType="done"
-                  />
-                </View>
-                
-                <View style={styles.modalActions}>
-                  <TouchableOpacity 
-                    style={styles.modalCancelButton}
-                    onPress={() => setIsReviewModalVisible(false)}
-                    disabled={isSubmittingReview}
-                  >
-                    <Text style={styles.modalCancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={styles.modalSubmitButton}
-                    onPress={submitSessionReview}
-                    disabled={isSubmittingReview || rating === 0}
-                  >
-                    {isSubmittingReview ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                      <Text style={styles.modalSubmitButtonText}>Submit</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </KeyboardAvoidingView>
-          </TouchableWithoutFeedback>
-        </Modal>
+          <SafeAreaView edges={['top']} style={styles.safeAreaTop}>
+            <View style={styles.headerContent}>
+              <Text style={styles.headerTitle}>My Sessions</Text>
+            </View>
+          </SafeAreaView>
+        </LinearGradient>
       </View>
+      
+      <View style={styles.filterContainer}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScrollContent}
+        >
+          <Chip
+            selected={filter === 'upcoming'}
+            onPress={() => handleTabChange('upcoming')}
+            style={styles.filterChip}
+            selectedColor="#9C27B0"
+          >
+            Upcoming
+          </Chip>
+          <Chip
+            selected={filter === 'past'}
+            onPress={() => handleTabChange('past')}
+            style={styles.filterChip}
+            selectedColor="#9C27B0"
+          >
+            Past
+          </Chip>
+          <Chip
+            selected={filter === 'all'}
+            onPress={() => handleTabChange('all')}
+            style={styles.filterChip}
+            selectedColor="#9C27B0"
+          >
+            All Sessions
+          </Chip>
+        </ScrollView>
+      </View>
+      
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#9C27B0" />
+            <Text style={styles.loadingText}>Loading your sessions...</Text>
+          </View>
+        ) : filteredSessions.length > 0 ? (
+          filteredSessions.map(renderSessionItem)
+        ) : (
+          renderEmptyList()
+        )}
+      </ScrollView>
+      
+      {/* Review Modal */}
+      <Modal
+        visible={isReviewModalVisible}
+        transparent={true}
+        animationType="slide"
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.modalOverlay}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Rate Your Experience</Text>
+              
+              {renderRatingStars()}
+              
+              <View style={styles.reviewInputContainer}>
+                <Text style={styles.reviewInputLabel}>Comments (optional)</Text>
+                <TextInput
+                  style={styles.reviewInput}
+                  placeholder="Share your experience with this tutor..."
+                  value={reviewComment}
+                  onChangeText={setReviewComment}
+                  multiline
+                  maxLength={500}
+                  blurOnSubmit={true}
+                  returnKeyType="done"
+                />
+              </View>
+              
+              <View style={styles.modalActions}>
+                <TouchableOpacity 
+                  style={styles.modalCancelButton}
+                  onPress={() => setIsReviewModalVisible(false)}
+                  disabled={isSubmittingReview}
+                >
+                  <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.modalSubmitButton}
+                  onPress={submitSessionReview}
+                  disabled={isSubmittingReview || rating === 0}
+                >
+                  {isSubmittingReview ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.modalSubmitButtonText}>Submit</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -719,172 +730,162 @@ const MySessionsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#F8F9FA',
+  },
+  safeAreaTop: {
+    width: '100%',
   },
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#F8F9FA',
   },
-  tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  tab: {
-    flex: 1,
+  contentContainer: {
     padding: 16,
+    paddingBottom: 32,
+  },
+  headerContainer: {
+    overflow: 'hidden',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    elevation: 4,
+    shadowColor: '#9C27B0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  headerGradient: {
+    width: '100%',
+  },
+  headerContent: {
+    padding: 20,
+    paddingTop: Platform.OS === 'android' ? 16 : 0,
+    paddingBottom: 24,
     alignItems: 'center',
   },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#2196F3',
-  },
-  tabText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  activeTabText: {
-    color: '#2196F3',
+  headerTitle: {
+    fontSize: 22,
     fontWeight: 'bold',
+    color: '#FFFFFF',
   },
-  listContent: {
-    padding: 16,
-    paddingBottom: 80,
-    flexGrow: 1,
+  filterContainer: {
+    paddingVertical: 8,
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  filterScrollContent: {
+    paddingHorizontal: 16,
+  },
+  filterChip: {
+    marginRight: 8,
+    marginVertical: 4,
   },
   sessionCard: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
+    marginBottom: 20,
+    borderRadius: 12,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 3,
   },
-  cancelledCard: {
-    opacity: 0.7,
-  },
-  rescheduledCard: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#FF9800',
-  },
-  sessionHeader: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 12,
   },
-  sessionSubject: {
+  subject: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    marginBottom: 4,
   },
-  statusBadge: {
-    backgroundColor: '#F44336',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+  dateText: {
+    fontSize: 14,
+    color: '#4B5563',
   },
-  completedBadge: {
-    backgroundColor: '#4CAF50',
+  statusChip: {
+    height: 32,
   },
-  pendingBadge: {
-    backgroundColor: '#FFC107',
-  },
-  pastPendingBadge: {
-    backgroundColor: '#FF9800',
-  },
-  rescheduledBadge: {
-    backgroundColor: '#FF9800',
-  },
-  statusText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  sessionDetails: {
-    marginBottom: 12,
-  },
-  detailRow: {
+  tutorInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 12,
     marginBottom: 8,
   },
-  detailText: {
-    marginLeft: 8,
+  tutorText: {
     fontSize: 16,
-    color: '#333',
+    color: '#374151',
+    marginLeft: 12,
   },
-  actionButtons: {
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  priceText: {
+    fontSize: 16,
+    color: '#374151',
+    marginLeft: 12,
+    fontWeight: '500',
+  },
+  actionsContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 8,
+    marginTop: 12,
   },
-  cancelButton: {
-    backgroundColor: '#F44336',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 4,
+  actionButton: {
+    marginLeft: 12,
+    borderRadius: 8,
   },
-  cancelButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  reviewButton: {
-    backgroundColor: '#FF9800',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 4,
-  },
-  reviewButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  completeButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 4,
-  },
-  completeButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+  detailsButton: {
+    marginLeft: 12,
+    borderRadius: 8,
+    borderColor: '#9C27B0',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-    flex: 1,
+    padding: 32,
     minHeight: 300,
   },
-  emptyText: {
+  loadingText: {
+    marginTop: 16,
     fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+    color: '#4B5563',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+    minHeight: 300,
+  },
+  emptyIcon: {
+    marginBottom: 16,
+  },
+  emptyText: {
     marginTop: 16,
     marginBottom: 24,
+    fontSize: 16,
+    color: '#4B5563',
+    textAlign: 'center',
+  },
+  emptySubText: {
+    marginBottom: 24,
+    color: '#6B7280',
+    textAlign: 'center',
   },
   findTutorButton: {
-    backgroundColor: '#2196F3',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
     borderRadius: 8,
   },
   findTutorButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -962,42 +963,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  rescheduledContainer: {
-    marginBottom: 16,
-  },
-  rescheduledText: {
-    color: '#333',
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  acceptButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 4,
-    marginRight: 10,
-  },
-  acceptButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  declineButton: {
-    backgroundColor: '#F44336',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 4,
-  },
-  declineButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  statusMessage: {
-    marginBottom: 16,
-  },
-  pendingText: {
-    color: '#333',
-    fontSize: 16,
   },
 });
 

@@ -39,7 +39,7 @@ const ChatDetailsScreen = ({ route, navigation }) => {
   const [chatData, setChatData] = useState(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const flatListRef = useRef(null);
-  const theme = useTheme();
+  const theme = useTheme() || { colors: { primary: '#9C27B0', secondary: '#E91E63', error: '#F44336' } };
   
   // Load chat data to check status
   const fetchChatData = useCallback(async () => {
@@ -143,6 +143,16 @@ const ChatDetailsScreen = ({ route, navigation }) => {
   
   // Handle deleting the chat
   const handleDeleteChat = async () => {
+    // If student and chat not ended, show explanation
+    if (!isTutor && !isChatEnded) {
+      Alert.alert(
+        "Cannot Delete Chat",
+        "Students can only delete chats after they've been ended by the tutor.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+    
     Alert.alert(
       "Delete Chat",
       "Are you sure you want to delete this chat? This will remove it from your message list, but not from the other person's.",
@@ -214,11 +224,20 @@ const ChatDetailsScreen = ({ route, navigation }) => {
     }
   };
   
-  // Check if current user is the tutor
-  const isTutor = auth.currentUser.uid === (chatData?.participants?.tutorId || '');
-  
-  // Check if the chat has been ended
-  const isChatEnded = chatData?.ended || false;
+  // Check if user is tutor and if chat is ended with more explicit declarations
+  let isTutor = false;
+  try {
+    isTutor = auth.currentUser?.uid === sessionDetails?.tutorId;
+  } catch (error) {
+    console.error('Error determining tutor status:', error);
+  }
+
+  let isChatEnded = false;
+  try {
+    isChatEnded = !!chatData?.ended;
+  } catch (error) {
+    console.error('Error determining chat ended status:', error);
+  }
   
   // Render message item
   const renderMessageItem = ({ item, index }) => {
@@ -236,7 +255,12 @@ const ChatDetailsScreen = ({ route, navigation }) => {
           styles.messageBubble,
           isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble
         ]}>
-          <Text style={styles.messageText}>{item.content}</Text>
+          <Text style={[
+            styles.messageText,
+            isCurrentUser ? styles.currentUserText : styles.otherUserText
+          ]}>
+            {item.content}
+          </Text>
           <Text style={styles.messageTime}>
             {formatMessageTime(item.timestamp)}
           </Text>
@@ -252,14 +276,182 @@ const ChatDetailsScreen = ({ route, navigation }) => {
   const openMenu = () => setMenuVisible(true);
   const closeMenu = () => setMenuVisible(false);
   
+  // Move styles into the component function at the beginning instead of here
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: '#F8F9FA',
+    },
+    header: {
+      backgroundColor: '#9C27B0',
+      elevation: 4,
+    },
+    headerContent: {
+      flex: 1,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: '#FFFFFF',
+    },
+    sessionBadge: {
+      marginTop: 2,
+    },
+    sessionStatus: {
+      fontSize: 12,
+      fontWeight: 'bold',
+      color: '#FFFFFF',
+    },
+    sessionInfoBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 12,
+      backgroundColor: '#FFFFFF',
+      borderBottomWidth: 1,
+      borderBottomColor: '#EEEEEE',
+      elevation: 2,
+    },
+    sessionInfoText: {
+      fontSize: 14,
+      color: '#666666',
+      marginLeft: 8,
+    },
+    chatEndedBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 10,
+      backgroundColor: '#E91E63',
+    },
+    chatEndedText: {
+      color: '#FFFFFF',
+      fontWeight: 'bold',
+      marginLeft: 8,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    messagesList: {
+      padding: 16,
+      flexGrow: 1,
+    },
+    messageContainer: {
+      marginVertical: 4,
+      maxWidth: '80%',
+    },
+    currentUserMessage: {
+      alignSelf: 'flex-end',
+    },
+    otherUserMessage: {
+      alignSelf: 'flex-start',
+    },
+    messageBubble: {
+      padding: 12,
+      borderRadius: 18,
+      elevation: 1,
+    },
+    currentUserBubble: {
+      backgroundColor: '#E1BEE7',
+      borderTopRightRadius: 4,
+    },
+    otherUserBubble: {
+      backgroundColor: '#FFFFFF',
+      borderTopLeftRadius: 4,
+    },
+    messageText: {
+      fontSize: 16,
+      lineHeight: 22,
+    },
+    currentUserText: {
+      color: '#212121',
+    },
+    otherUserText: {
+      color: '#424242',
+    },
+    messageTime: {
+      fontSize: 11,
+      color: '#9E9E9E',
+      alignSelf: 'flex-end',
+      marginTop: 4,
+    },
+    readReceipt: {
+      fontSize: 10,
+      color: '#9C27B0',
+      alignSelf: 'flex-end',
+      marginTop: 2,
+    },
+    typingContainer: {
+      paddingHorizontal: 16,
+      paddingVertical: 4,
+    },
+    typingText: {
+      fontSize: 12,
+      color: '#9E9E9E',
+      fontStyle: 'italic',
+    },
+    inputContainer: {
+      flexDirection: 'row',
+      padding: 10,
+      backgroundColor: '#FFFFFF',
+      borderTopWidth: 1,
+      borderTopColor: '#EEEEEE',
+    },
+    input: {
+      flex: 1,
+      backgroundColor: '#F1F1F1',
+      borderRadius: 24,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      maxHeight: 100,
+      fontSize: 16,
+    },
+    inputDisabled: {
+      backgroundColor: '#F5F5F5',
+      color: '#9E9E9E',
+    },
+    sendButton: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: '#9C27B0',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginLeft: 8,
+      elevation: 2,
+    },
+    sendButtonDisabled: {
+      backgroundColor: '#D1C4E9',
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 32,
+    },
+    emptyText: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginTop: 16,
+      color: '#757575',
+    },
+    emptySubtext: {
+      fontSize: 14,
+      color: '#9E9E9E',
+      textAlign: 'center',
+      marginTop: 8,
+    },
+  });
+  
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : null}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <Appbar.Header>
-        <Appbar.BackAction onPress={() => navigation.goBack()} />
+      <Appbar.Header style={styles.header}>
+        <Appbar.BackAction color="#fff" onPress={() => navigation.goBack()} />
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>{otherUserName}</Text>
           <View style={styles.sessionBadge}>
@@ -275,7 +467,7 @@ const ChatDetailsScreen = ({ route, navigation }) => {
           visible={menuVisible}
           onDismiss={closeMenu}
           anchor={
-            <Appbar.Action icon="dots-vertical" onPress={openMenu} />
+            <Appbar.Action color="#fff" icon="dots-vertical" onPress={openMenu} />
           }
         >
           {isTutor && !isChatEnded && (
@@ -288,19 +480,30 @@ const ChatDetailsScreen = ({ route, navigation }) => {
               }} 
             />
           )}
-          <Menu.Item 
-            title="Delete Chat" 
-            leadingIcon="delete"
-            onPress={() => {
-              closeMenu();
-              handleDeleteChat();
-            }} 
-          />
+          {(isTutor || isChatEnded) && (
+            <Menu.Item 
+              title="Delete Chat" 
+              leadingIcon="delete"
+              onPress={() => {
+                closeMenu();
+                handleDeleteChat();
+              }} 
+            />
+          )}
+          {!isTutor && !isChatEnded && (
+            <Menu.Item 
+              title="Delete Chat (Unavailable)" 
+              leadingIcon="delete"
+              disabled={true}
+              titleStyle={{ color: '#999999' }}
+              onPress={() => {}} 
+            />
+          )}
         </Menu>
       </Appbar.Header>
       
       <View style={styles.sessionInfoBar}>
-        <MaterialIcons name="event" size={16} color={theme.colors.primary} />
+        <MaterialIcons name="event" size={16} color={theme?.colors?.primary || '#9C27B0'} />
         <Text style={styles.sessionInfoText}>
           {sessionDetails.subject} · {sessionDetails.date} · {sessionDetails.startTime}-{sessionDetails.endTime}
         </Text>
@@ -317,7 +520,7 @@ const ChatDetailsScreen = ({ route, navigation }) => {
       
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size="large" color={theme?.colors?.primary || '#9C27B0'} />
         </View>
       ) : (
         <>
@@ -384,157 +587,5 @@ const ChatDetailsScreen = ({ route, navigation }) => {
     </KeyboardAvoidingView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
-  headerContent: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  sessionBadge: {
-    marginTop: 2,
-  },
-  sessionStatus: {
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  sessionInfoBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
-  },
-  sessionInfoText: {
-    fontSize: 14,
-    color: '#666666',
-    marginLeft: 8,
-  },
-  chatEndedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 10,
-    backgroundColor: '#FF9800',
-  },
-  chatEndedText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  messagesList: {
-    padding: 16,
-    flexGrow: 1,
-  },
-  messageContainer: {
-    marginVertical: 4,
-    maxWidth: '80%',
-  },
-  currentUserMessage: {
-    alignSelf: 'flex-end',
-  },
-  otherUserMessage: {
-    alignSelf: 'flex-start',
-  },
-  messageBubble: {
-    padding: 12,
-    borderRadius: 16,
-  },
-  currentUserBubble: {
-    backgroundColor: '#DCF8C6',
-    borderTopRightRadius: 4,
-  },
-  otherUserBubble: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 4,
-  },
-  messageText: {
-    fontSize: 16,
-    color: '#333333',
-  },
-  messageTime: {
-    fontSize: 11,
-    color: '#999999',
-    alignSelf: 'flex-end',
-    marginTop: 4,
-  },
-  readReceipt: {
-    fontSize: 10,
-    color: '#8C8C8C',
-    alignSelf: 'flex-end',
-    marginTop: 2,
-  },
-  typingContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-  },
-  typingText: {
-    fontSize: 12,
-    color: '#999999',
-    fontStyle: 'italic',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    padding: 8,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-  },
-  input: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    maxHeight: 100,
-  },
-  inputDisabled: {
-    backgroundColor: '#EEEEEE',
-    color: '#999999',
-  },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#3498db',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  sendButtonDisabled: {
-    backgroundColor: '#B3DFFC',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 16,
-    color: '#555555',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#888888',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-});
 
 export default ChatDetailsScreen; 

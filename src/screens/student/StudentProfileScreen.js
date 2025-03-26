@@ -119,7 +119,7 @@ const StudentProfileScreen = ({ navigation }) => {
   if (loading && !userProfile) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563EB" />
+        <ActivityIndicator size="large" color="#9C27B0" />
         <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
@@ -133,15 +133,15 @@ const StudentProfileScreen = ({ navigation }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#2563EB']}
-            tintColor={'#2563EB'}
+            colors={['#9C27B0']}
+            tintColor={'#9C27B0'}
           />
         }
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerContainer}>
           <LinearGradient
-            colors={['#2563EB', '#0EA5E9']}
+            colors={['#9C27B0', '#E91E63']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0.7 }}
             style={styles.headerGradient}
@@ -165,7 +165,7 @@ const StudentProfileScreen = ({ navigation }) => {
                 mode="contained" 
                 style={styles.editProfileButton}
                 buttonColor="#FFFFFF"
-                textColor="#2563EB"
+                textColor="#9C27B0"
                 icon="account-edit"
                 onPress={navigateToEditProfile}
               >
@@ -179,26 +179,26 @@ const StudentProfileScreen = ({ navigation }) => {
           <Card.Content>
             <View style={styles.cardHeaderRow}>
               <Text style={styles.cardTitle}>Your Learning Journey</Text>
-              <MaterialIcons name="school" size={24} color="#2563EB" />
+              <MaterialIcons name="school" size={24} color="#9C27B0" />
             </View>
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
-                <View style={[styles.statBadge, { backgroundColor: '#10B98120' }]}>
-                  <MaterialIcons name="book" size={24} color="#10B981" />
+                <View style={[styles.statBadge, { backgroundColor: '#673AB720' }]}>
+                  <MaterialIcons name="book" size={24} color="#673AB7" />
                 </View>
                 <Text style={styles.statNumber}>{courseCount}</Text>
                 <Text style={styles.statLabel}>Subjects</Text>
               </View>
               <View style={styles.statItem}>
-                <View style={[styles.statBadge, { backgroundColor: '#2563EB20' }]}>
-                  <MaterialIcons name="event" size={24} color="#2563EB" />
+                <View style={[styles.statBadge, { backgroundColor: '#9C27B020' }]}>
+                  <MaterialIcons name="event" size={24} color="#9C27B0" />
                 </View>
                 <Text style={styles.statNumber}>{sessionCount}</Text>
                 <Text style={styles.statLabel}>Sessions</Text>
               </View>
               <View style={styles.statItem}>
-                <View style={[styles.statBadge, { backgroundColor: '#F59E0B20' }]}>
-                  <MaterialIcons name="people" size={24} color="#F59E0B" />
+                <View style={[styles.statBadge, { backgroundColor: '#E91E6320' }]}>
+                  <MaterialIcons name="people" size={24} color="#E91E63" />
                 </View>
                 <Text style={styles.statNumber}>{tutorCount}</Text>
                 <Text style={styles.statLabel}>Tutors</Text>
@@ -211,17 +211,17 @@ const StudentProfileScreen = ({ navigation }) => {
           <Card.Content>
             <View style={styles.cardHeaderRow}>
               <Text style={styles.cardTitle}>Want to Become a Tutor?</Text>
-              <MaterialIcons name="trending-up" size={24} color="#2563EB" />
+              <MaterialIcons name="trending-up" size={24} color="#9C27B0" />
             </View>
             <View style={styles.tutorPromptContainer}>
-              <MaterialIcons name="psychology" size={60} color="#F59E0B" style={styles.tutorPromptIcon} />
+              <MaterialIcons name="psychology" size={60} color="#E91E63" style={styles.tutorPromptIcon} />
               <Text style={styles.cardText}>
                 Share your knowledge with other students and earn while helping others succeed.
               </Text>
               <Button 
                 mode="contained" 
                 style={styles.applyButton}
-                buttonColor="#2563EB"
+                buttonColor="#9C27B0"
                 icon="account-tie"
                 onPress={() => navigation.navigate('ApplyTutor')}
               >
@@ -234,7 +234,7 @@ const StudentProfileScreen = ({ navigation }) => {
         <Button
           mode="outlined"
           style={styles.logoutButton}
-          textColor="#F43F5E"
+          textColor="#F44336"
           icon="logout-variant"
           onPress={handleLogout}
         >
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     margin: 16,
     marginTop: Platform.OS === 'ios' ? 44 : 16,
     elevation: 4,
-    shadowColor: '#2563EB',
+    shadowColor: '#9C27B0',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     margin: 16,
     marginTop: 8,
     marginBottom: 30,
-    borderColor: '#F43F5E',
+    borderColor: '#F44336',
   },
 });
 

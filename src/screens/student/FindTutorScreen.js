@@ -8,14 +8,18 @@ import {
   Image, 
   TextInput,
   ActivityIndicator,
-  RefreshControl
+  RefreshControl,
+  Platform
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getAllTutors, getAllSubjects, getTutorAvailability } from '../../utils/tutorUtils';
-import { getCurrentUser } from '../../utils/auth';
+import { getCurrentUser, isValidImageUrl } from '../../utils/auth';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TutorFilterModal from '../../components/TutorFilterModal';
 import { format } from 'date-fns';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import { Button } from 'react-native-paper';
 
 const FindTutorScreen = ({ navigation }) => {
   const [tutors, setTutors] = useState([]);
@@ -34,6 +38,7 @@ const FindTutorScreen = ({ navigation }) => {
   });
   const [tutorAvailability, setTutorAvailability] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
+  const [avatarErrors, setAvatarErrors] = useState({});
 
   useEffect(() => {
     fetchTutorsAndSubjects();
@@ -205,328 +210,358 @@ const FindTutorScreen = ({ navigation }) => {
     navigation.navigate('TutorDetail', { tutor });
   };
 
+  const handleImageError = (tutorId) => {
+    setAvatarErrors(prev => ({
+      ...prev,
+      [tutorId]: true
+    }));
+  };
+
+  const getProfileImageSource = (tutor) => {
+    if (tutor?.photoURL && 
+        isValidImageUrl(tutor.photoURL) && 
+        !avatarErrors[tutor.uid]) {
+      return { uri: tutor.photoURL };
+    }
+    return require('../../../assets/icon.png');
+  };
+
   const renderTutorItem = ({ item }) => (
     <TouchableOpacity 
       style={styles.tutorCard}
       onPress={() => handleTutorSelect(item)}
     >
-      <View style={styles.tutorAvatarContainer}>
-        {item.photoURL ? (
-          <Image source={{ uri: item.photoURL }} style={styles.tutorAvatar} />
-        ) : (
-          <View style={styles.tutorAvatarPlaceholder}>
-            <Text style={styles.tutorAvatarPlaceholderText}>
-              {(item.fullName || item.displayName || "T").charAt(0).toUpperCase()}
+      <View style={styles.cardContent}>
+        <View style={styles.tutorAvatarContainer}>
+          <Image 
+            source={getProfileImageSource(item)} 
+            style={styles.tutorAvatar} 
+            onError={() => handleImageError(item.uid)}
+          />
+        </View>
+        
+        <View style={styles.tutorInfo}>
+          <Text style={styles.tutorName}>{item.fullName || item.displayName || "Tutor"}</Text>
+          
+          <View style={styles.ratingContainer}>
+            <MaterialIcons name="star" size={16} color="#FFC107" />
+            <Text style={styles.ratingText}>
+              {item.rating?.toFixed(1) || 'New'} 
+              {item.totalReviews > 0 && ` (${item.totalReviews})`}
             </Text>
           </View>
-        )}
-      </View>
-      
-      <View style={styles.tutorInfo}>
-        <Text style={styles.tutorName}>{item.fullName || item.displayName || "Tutor"}</Text>
-        
-        <View style={styles.ratingContainer}>
-          <MaterialIcons name="star" size={16} color="#FFC107" />
-          <Text style={styles.ratingText}>
-            {item.rating?.toFixed(1) || 'New'} 
-            {item.totalReviews > 0 && ` (${item.totalReviews})`}
-          </Text>
-        </View>
-        
-        <View style={styles.subjectsContainer}>
-          {item.subjects?.slice(0, 3).map((subjectId, index) => {
-            // Find subject object by ID
-            const subject = subjects.find(s => s.id === subjectId);
-            return subject ? (
-              <View key={index} style={styles.subjectTag}>
-                <Text style={styles.subjectTagText}>{subject.name}</Text>
+          
+          <View style={styles.priceContainer}>
+            <MaterialIcons name="attach-money" size={16} color="#4CAF50" />
+            <Text style={styles.priceText}>${item.hourlyRate || 0}/hr</Text>
+          </View>
+          
+          <View style={styles.subjectsContainer}>
+            {item.subjects?.slice(0, 3).map((subjectId, index) => {
+              // Find subject object by ID
+              const subject = subjects.find(s => s.id === subjectId);
+              return subject ? (
+                <View key={index} style={styles.subjectTag}>
+                  <Text style={styles.subjectTagText}>{subject.name}</Text>
+                </View>
+              ) : null;
+            })}
+            {item.subjects?.length > 3 && (
+              <View style={styles.moreSubjectsTag}>
+                <Text style={styles.moreSubjectsText}>+{item.subjects.length - 3}</Text>
               </View>
-            ) : null;
-          })}
-          {item.subjects?.length > 3 && (
-            <Text style={styles.moreSubjectsText}>+{item.subjects.length - 3}</Text>
-          )}
+            )}
+          </View>
         </View>
         
-        <Text style={styles.hourlyRate}>${item.hourlyRate || 0}/hr</Text>
+        <MaterialIcons name="chevron-right" size={24} color="#9C27B0" style={styles.cardArrow} />
       </View>
-      
-      <MaterialIcons name="chevron-right" size={24} color="#999" />
     </TouchableOpacity>
   );
 
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#2196F3" />
-          <Text style={styles.loaderText}>Loading tutors...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
-            <MaterialIcons name="search" size={24} color="#999" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search by tutor name"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery ? (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <MaterialIcons name="clear" size={20} color="#999" />
-              </TouchableOpacity>
-            ) : null}
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+      <StatusBar style="light" />
+      
+      <View style={styles.headerContainer}>
+        <LinearGradient
+          colors={['#9C27B0', '#E91E63']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0.7 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Find Tutors</Text>
+            <Text style={styles.headerSubtitle}>Connect with expert tutors</Text>
           </View>
-          
-          <TouchableOpacity 
-            style={styles.filterButton}
-            onPress={() => setFilterModalVisible(true)}
-          >
-            <MaterialIcons name="filter-list" size={24} color="#2196F3" />
-            {getActiveFilterCount() > 0 && (
-              <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>{getActiveFilterCount()}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+        </LinearGradient>
+      </View>
+      
+      <View style={styles.searchContainer}>
+        <View style={styles.searchInputContainer}>
+          <MaterialIcons name="search" size={24} color="#9E9E9E" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by tutor name"
+            placeholderTextColor="#9E9E9E"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <MaterialIcons name="close" size={20} color="#9E9E9E" />
+            </TouchableOpacity>
+          ) : null}
         </View>
         
-        {getActiveFilterCount() > 0 && (
-          <View style={styles.activeFiltersContainer}>
-            <Text style={styles.activeFiltersTitle}>Active Filters:</Text>
-            <View style={styles.activeFiltersContent}>
-              {activeFilters.subject && (
-                <View style={styles.activeFilterChip}>
-                  <Text style={styles.activeFilterChipText}>
-                    Subject: {activeFilters.subject.name}
-                  </Text>
-                </View>
-              )}
-              {activeFilters.minRating > 0 && (
-                <View style={styles.activeFilterChip}>
-                  <Text style={styles.activeFilterChipText}>
-                    Rating: {activeFilters.minRating}+
-                  </Text>
-                </View>
-              )}
-              {(activeFilters.minPrice > 0 || activeFilters.maxPrice < 100) && (
-                <View style={styles.activeFilterChip}>
-                  <Text style={styles.activeFilterChipText}>
-                    Price: ${activeFilters.minPrice}-${activeFilters.maxPrice}/hr
-                  </Text>
-                </View>
-              )}
-              {activeFilters.date && (
-                <View style={styles.activeFilterChip}>
-                  <Text style={styles.activeFilterChipText}>
-                    Available: {format(activeFilters.date, 'MMM d, yyyy')}
-                  </Text>
-                </View>
-              )}
+        <TouchableOpacity 
+          style={styles.filterButton}
+          onPress={() => setFilterModalVisible(true)}
+        >
+          <MaterialIcons name="filter-list" size={24} color="#9C27B0" />
+          {getActiveFilterCount() > 0 && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{getActiveFilterCount()}</Text>
             </View>
-            <TouchableOpacity 
-              style={styles.clearFiltersButton}
-              onPress={() => setActiveFilters({
-                subject: null,
-                minRating: 0,
-                maxPrice: 100,
-                minPrice: 0,
-                date: null
-              })}
-            >
-              <Text style={styles.clearFiltersText}>Clear All</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {filteredTutors.length === 0 ? (
-          <View style={styles.noResultsContainer}>
-            <MaterialIcons name="search-off" size={60} color="#ccc" />
-            <Text style={styles.noResultsText}>No tutors found</Text>
-            <Text style={styles.noResultsSubtext}>
-              Try adjusting your search or filters
-            </Text>
-          </View>
-        ) : (
+          )}
+        </TouchableOpacity>
+      </View>
+      
+      {isLoading && tutors.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#9C27B0" />
+          <Text style={styles.loadingText}>Loading tutors...</Text>
+        </View>
+      ) : (
+        <>
+          {activeFilters.subject && (
+            <View style={styles.activeFilterContainer}>
+              <Text style={styles.activeFilterLabel}>Subject:</Text>
+              <View style={styles.activeFilterBadge}>
+                <Text style={styles.activeFilterText}>{activeFilters.subject.name}</Text>
+                <TouchableOpacity 
+                  onPress={() => setActiveFilters({...activeFilters, subject: null})}
+                  style={styles.clearFilterButton}
+                >
+                  <MaterialIcons name="close" size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+          
           <FlatList
             data={filteredTutors}
             renderItem={renderTutorItem}
             keyExtractor={(item) => item.uid}
-            contentContainerStyle={styles.tutorsList}
-            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContainer}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                colors={['#2196F3']}
-                tintColor={'#2196F3'}
+                colors={['#9C27B0']}
+                tintColor={'#9C27B0'}
               />
             }
+            ListEmptyComponent={() => (
+              <View style={styles.emptyContainer}>
+                <MaterialIcons name="search-off" size={64} color="#9E9E9E" />
+                <Text style={styles.emptyTitle}>No tutors found</Text>
+                <Text style={styles.emptyText}>
+                  Try adjusting your filters or search query to find more tutors
+                </Text>
+                {getActiveFilterCount() > 0 && (
+                  <Button 
+                    mode="outlined" 
+                    icon="filter-remove" 
+                    onPress={() => setActiveFilters({
+                      subject: null,
+                      minRating: 0,
+                      maxPrice: 100,
+                      minPrice: 0,
+                      date: null
+                    })}
+                    style={styles.clearAllButton}
+                    textColor="#9C27B0"
+                  >
+                    Clear All Filters
+                  </Button>
+                )}
+              </View>
+            )}
           />
-        )}
-
-        <TutorFilterModal 
-          isVisible={filterModalVisible} 
-          onClose={() => setFilterModalVisible(false)}
-          onApplyFilters={handleApplyFilters}
-          subjects={subjects}
-          initialFilters={activeFilters}
-        />
-      </View>
+        </>
+      )}
+      
+      <TutorFilterModal
+        visible={filterModalVisible}
+        onClose={() => setFilterModalVisible(false)}
+        onApplyFilters={handleApplyFilters}
+        activeFilters={activeFilters}
+        subjects={subjects}
+      />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f8f8f8',
-  },
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#F8F9FA',
+  },
+  headerContainer: {
+    overflow: 'hidden',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    elevation: 4,
+    shadowColor: '#9C27B0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  headerGradient: {
+    width: '100%',
+    paddingTop: Platform.OS === 'ios' ? 0 : 20,
+  },
+  headerContent: {
+    padding: 24,
+    paddingBottom: 28,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 6,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    opacity: 0.9,
   },
   searchContainer: {
     flexDirection: 'row',
+    padding: 16,
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
-  searchBar: {
+  searchInputContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f2f2f2',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    marginRight: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 48,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   searchIcon: {
     marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    height: 40,
-    paddingVertical: 8,
+    height: 48,
+    fontSize: 16,
+    color: '#1F2937',
   },
   filterButton: {
-    position: 'relative',
-    padding: 8,
+    marginLeft: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   filterBadge: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: '#FF5722',
+    top: 6,
+    right: 6,
+    backgroundColor: '#9C27B0',
     borderRadius: 10,
-    width: 20,
+    minWidth: 20,
     height: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
   filterBadgeText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: 'bold',
+    paddingHorizontal: 4,
   },
-  activeFiltersContainer: {
-    backgroundColor: '#e3f2fd',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#b3e5fc',
-  },
-  activeFiltersTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2196F3',
-    marginBottom: 8,
-  },
-  activeFiltersContent: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  activeFilterChip: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#2196F3',
-  },
-  activeFilterChipText: {
-    color: '#2196F3',
-    fontSize: 12,
-  },
-  clearFiltersButton: {
-    alignSelf: 'flex-end',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  clearFiltersText: {
-    color: '#F44336',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  subjectsFilter: {
-    backgroundColor: '#fff',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  filterTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#555',
-    marginBottom: 8,
-  },
-  tutorsList: {
-    padding: 12,
-  },
-  tutorCard: {
+  activeFilterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
   },
-  tutorAvatarContainer: {
-    marginRight: 16,
+  activeFilterLabel: {
+    fontSize: 14,
+    color: '#4B5563',
+    marginRight: 8,
   },
-  tutorAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#f2f2f2',
+  activeFilterBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#9C27B0',
+    borderRadius: 16,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
   },
-  tutorAvatarPlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#2196F3',
+  activeFilterText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    marginRight: 4,
+  },
+  clearFilterButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  tutorAvatarPlaceholderText: {
-    fontSize: 24,
-    color: '#fff',
-    fontWeight: 'bold',
+  listContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  tutorCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginBottom: 16,
+    padding: 16,
+    elevation: 2,
+    shadowColor: '#1F2937',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  cardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tutorAvatarContainer: {
+    borderRadius: 40,
+    overflow: 'hidden',
+    marginRight: 16,
+    backgroundColor: '#F3E5F5',
+    elevation: 2,
+    shadowColor: '#9C27B0',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  tutorAvatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
   },
   tutorInfo: {
     flex: 1,
@@ -534,74 +569,92 @@ const styles = StyleSheet.create({
   tutorName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1F2937',
     marginBottom: 4,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   ratingText: {
-    marginLeft: 4,
-    color: '#666',
     fontSize: 14,
+    color: '#4B5563',
+    marginLeft: 4,
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  priceText: {
+    fontSize: 14,
+    color: '#4B5563',
+    marginLeft: 4,
+    fontWeight: '500',
   },
   subjectsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 6,
   },
   subjectTag: {
-    backgroundColor: '#f0f7ff',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
+    backgroundColor: '#F3E5F5',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     marginRight: 6,
     marginBottom: 4,
   },
   subjectTagText: {
     fontSize: 12,
-    color: '#2196F3',
+    color: '#9C27B0',
+  },
+  moreSubjectsTag: {
+    backgroundColor: '#E0E0E0',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    marginBottom: 4,
   },
   moreSubjectsText: {
     fontSize: 12,
-    color: '#999',
-    alignSelf: 'center',
+    color: '#616161',
   },
-  hourlyRate: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2196F3',
+  cardArrow: {
+    marginLeft: 8,
   },
-  loaderContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f8f8',
   },
-  loaderText: {
-    marginTop: 10,
+  loadingText: {
     fontSize: 16,
-    color: '#666',
+    color: '#6B7280',
+    marginTop: 12,
   },
-  noResultsContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  emptyContainer: {
+    paddingTop: 60,
     alignItems: 'center',
-    padding: 24,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
-  noResultsText: {
+  emptyTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#666',
+    color: '#4B5563',
     marginTop: 16,
+    marginBottom: 8,
   },
-  noResultsSubtext: {
-    fontSize: 14,
-    color: '#999',
+  emptyText: {
+    fontSize: 16,
+    color: '#6B7280',
     textAlign: 'center',
-    marginTop: 8,
+    marginBottom: 24,
+  },
+  clearAllButton: {
+    marginTop: 12,
+    borderColor: '#9C27B0',
   },
 });
 

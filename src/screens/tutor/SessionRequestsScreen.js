@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Modal, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, Modal, TouchableOpacity, Platform } from 'react-native';
 import { Text, Button, Card, useTheme, ActivityIndicator, List, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
@@ -7,10 +7,11 @@ import { getUserSessions, updateSessionStatus, rescheduleSession } from '../../u
 import { processRefund } from '../../utils/paymentUtils';
 import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const SessionRequestsScreen = ({ navigation }) => {
   const { user } = useAuth();
-  const theme = useTheme();
+  const theme = useTheme() || { colors: { primary: '#9C27B0', warning: '#FFA000', error: '#F44336' } };
   const [loading, setLoading] = useState(true);
   const [pendingSessions, setPendingSessions] = useState([]);
   
@@ -124,16 +125,38 @@ const SessionRequestsScreen = ({ navigation }) => {
   };
 
   const formatDate = (dateString) => {
-    const options = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+    if (!dateString) {
+      return 'Date not set';
+    }
+    
+    try {
+      const options = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
+      return new Date(dateString).toLocaleDateString(undefined, options);
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid date';
+    }
   };
 
   const formatTimeForDisplay = (timeString) => {
-    const [hours, minutes] = timeString.split(':');
-    const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
+    if (!timeString || typeof timeString !== 'string') {
+      return 'Time not set';
+    }
+    
+    try {
+      const [hours, minutes] = timeString.split(':');
+      if (!hours || !minutes) {
+        return timeString; // Return original if parsing fails
+      }
+      
+      const hour = parseInt(hours, 10);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour % 12 || 12;
+      return `${hour12}:${minutes} ${ampm}`;
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return timeString; // Return original on error
+    }
   };
 
   const handleDateChange = (event, selectedDate) => {
@@ -209,6 +232,10 @@ const SessionRequestsScreen = ({ navigation }) => {
   };
 
   const renderSessionCard = (session) => {
+    if (!session || !session.id || !session.date) {
+      return null;
+    }
+    
     return (
       <Card style={styles.sessionCard} key={session.id}>
         <Card.Content>
@@ -220,14 +247,14 @@ const SessionRequestsScreen = ({ navigation }) => {
           </View>
           
           <List.Item
-            title={session.studentName}
-            description={`Time: ${formatTimeForDisplay(session.startTime)} - ${formatTimeForDisplay(session.endTime)}`}
+            title={session.studentName || 'Unknown Student'}
+            description={`Time: ${formatTimeForDisplay(session.startTime || '00:00')} - ${formatTimeForDisplay(session.endTime || '00:00')}`}
             left={props => <List.Icon {...props} icon="account" />}
           />
           
           <List.Item
-            title={session.subject}
-            description={`$${session.hourlyRate}/hr • Total: $${session.totalAmount}`}
+            title={session.subject || 'General Session'}
+            description={`$${session.hourlyRate || 0}/hr • Total: $${session.totalAmount || 0}`}
             left={props => <List.Icon {...props} icon="book" />}
           />
           
@@ -243,7 +270,7 @@ const SessionRequestsScreen = ({ navigation }) => {
             <Button 
               mode="contained" 
               onPress={() => handleReschedulePress(session)}
-              style={[styles.actionButton, { backgroundColor: theme.colors.warning || '#FFA000' }]}
+              style={[styles.actionButton, { backgroundColor: theme?.colors?.warning || '#FFA000' }]}
               icon="calendar-clock"
             >
               Reschedule
@@ -251,7 +278,7 @@ const SessionRequestsScreen = ({ navigation }) => {
             <Button 
               mode="contained" 
               onPress={() => handleDeclineSession(session.id)}
-              style={[styles.actionButton, { backgroundColor: theme.colors.error }]}
+              style={[styles.actionButton, { backgroundColor: theme?.colors?.error || '#F44336' }]}
               icon="close"
             >
               Decline
@@ -265,23 +292,34 @@ const SessionRequestsScreen = ({ navigation }) => {
   if (loading && pendingSessions.length === 0) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={theme?.colors?.primary || '#9C27B0'} />
         <Text style={styles.loadingText}>Loading session requests...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView>
-        <View style={styles.header}>
-          <Text style={styles.title}>Session Requests</Text>
-          <Text style={styles.subtitle}>Review and respond to session requests from students</Text>
-        </View>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <View style={styles.headerContainer}>
+        <LinearGradient
+          colors={['#9C27B0', '#E91E63']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0.7 }}
+          style={styles.headerGradient}
+        >
+          <SafeAreaView edges={['top']} style={styles.safeAreaTop}>
+            <View style={styles.headerContent}>
+              <Text style={styles.headerTitle}>Session Requests</Text>
+              <Text style={styles.headerSubtitle}>Review and respond to session requests from students</Text>
+            </View>
+          </SafeAreaView>
+        </LinearGradient>
+      </View>
 
-        {pendingSessions.length > 0 ? (
+      <ScrollView>
+        {pendingSessions && pendingSessions.length > 0 ? (
           <View style={styles.sessionsContainer}>
-            {pendingSessions.map(renderSessionCard)}
+            {pendingSessions.map(session => session ? renderSessionCard(session) : null)}
           </View>
         ) : (
           <View style={styles.emptyContainer}>
@@ -384,6 +422,7 @@ const SessionRequestsScreen = ({ navigation }) => {
                 onPress={() => setIsRescheduleModalVisible(false)}
                 style={styles.cancelButton}
                 disabled={isSubmittingReschedule}
+                textColor={theme?.colors?.primary || '#9C27B0'}
               >
                 Cancel
               </Button>
@@ -392,6 +431,7 @@ const SessionRequestsScreen = ({ navigation }) => {
                 mode="contained"
                 onPress={handleSubmitReschedule}
                 style={styles.submitButton}
+                buttonColor={theme?.colors?.primary || '#9C27B0'}
                 loading={isSubmittingReschedule}
                 disabled={isSubmittingReschedule}
               >
@@ -410,6 +450,38 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  safeAreaTop: {
+    width: '100%',
+  },
+  headerContainer: {
+    overflow: 'hidden',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    elevation: 4,
+    shadowColor: '#9C27B0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  headerGradient: {
+    width: '100%',
+  },
+  headerContent: {
+    padding: 20,
+    paddingTop: Platform.OS === 'android' ? 16 : 0,
+    paddingBottom: 24,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    opacity: 0.9,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -419,22 +491,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     color: '#666',
-  },
-  header: {
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 15,
   },
   sessionsContainer: {
     padding: 15,

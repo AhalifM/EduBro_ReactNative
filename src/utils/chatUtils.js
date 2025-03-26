@@ -282,6 +282,17 @@ export const deleteChat = async (chatId) => {
       return { success: false, error: "You are not a participant in this chat" };
     }
     
+    // Check if the current user is a student and the chat hasn't been ended
+    if (
+      currentUser.uid === chatData.participants.studentId && 
+      !chatData.ended
+    ) {
+      return { 
+        success: false, 
+        error: "Students cannot delete a chat until the tutor has ended it" 
+      };
+    }
+    
     // Update the chat to mark it as deleted for this user
     // We'll keep track of which users have deleted the chat
     const field = `deletedBy.${currentUser.uid}`;
