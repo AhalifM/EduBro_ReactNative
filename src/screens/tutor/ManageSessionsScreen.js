@@ -3,13 +3,14 @@ import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Text, Button, Card, useTheme, ActivityIndicator, List, FAB } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
-import { getUserSessions } from '../../utils/tutorUtils';
+import { getUserSessions, updateSessionStatus } from '../../utils/tutorUtils';
 
 const ManageSessionsScreen = ({ navigation }) => {
   const { user } = useAuth();
   const theme = useTheme();
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState([]);
+  const [processingSession, setProcessingSession] = useState(null);
 
   useEffect(() => {
     fetchSessions();
@@ -33,9 +34,79 @@ const ManageSessionsScreen = ({ navigation }) => {
     }
   };
 
+  const handleAcceptSession = async (sessionId) => {
+    try {
+      setProcessingSession(sessionId);
+      const result = await updateSessionStatus(sessionId, 'confirmed');
+      
+      if (result.success) {
+        // Update the session in the local state
+        setSessions(prevSessions => 
+          prevSessions.map(session => 
+            session.id === sessionId 
+              ? { ...session, status: 'confirmed' } 
+              : session
+          )
+        );
+        Alert.alert('Success', 'Session accepted successfully');
+      } else {
+        Alert.alert('Error', result.error || 'Failed to accept session');
+      }
+    } catch (error) {
+      console.error('Error accepting session:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setProcessingSession(null);
+    }
+  };
+
+  const handleDeclineSession = async (sessionId) => {
+    try {
+      // Ask for confirmation before declining
+      Alert.alert(
+        'Confirm Decline',
+        'Are you sure you want to decline this session?',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Decline',
+            style: 'destructive',
+            onPress: async () => {
+              setProcessingSession(sessionId);
+              const result = await updateSessionStatus(sessionId, 'cancelled');
+              
+              if (result.success) {
+                // Update the session in the local state
+                setSessions(prevSessions => 
+                  prevSessions.map(session => 
+                    session.id === sessionId 
+                      ? { ...session, status: 'cancelled' } 
+                      : session
+                  )
+                );
+                Alert.alert('Success', 'Session declined successfully');
+              } else {
+                Alert.alert('Error', result.error || 'Failed to decline session');
+              }
+              setProcessingSession(null);
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error declining session:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
+      setProcessingSession(null);
+    }
+  };
+
   const renderSessionItem = (session) => {
     const sessionDate = new Date(session.date);
     const formattedDate = sessionDate.toLocaleDateString();
+    const isProcessing = processingSession === session.id;
     
     return (
       <Card style={styles.sessionCard} key={session.id}>
@@ -45,6 +116,7 @@ const ManageSessionsScreen = ({ navigation }) => {
             <Text style={[styles.sessionStatus, 
               { color: session.status === 'completed' ? theme.colors.success : 
                        session.status === 'cancelled' ? theme.colors.error :
+                       session.status === 'confirmed' ? '#4CAF50' :
                        theme.colors.primary }]}>
               {session.status.toUpperCase()}
             </Text>
@@ -68,6 +140,8 @@ const ManageSessionsScreen = ({ navigation }) => {
                 mode="contained" 
                 onPress={() => handleAcceptSession(session.id)}
                 style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
+                loading={isProcessing}
+                disabled={isProcessing}
               >
                 Accept
               </Button>
@@ -75,6 +149,8 @@ const ManageSessionsScreen = ({ navigation }) => {
                 mode="contained" 
                 onPress={() => handleDeclineSession(session.id)}
                 style={[styles.actionButton, { backgroundColor: theme.colors.error }]}
+                loading={isProcessing}
+                disabled={isProcessing}
               >
                 Decline
               </Button>

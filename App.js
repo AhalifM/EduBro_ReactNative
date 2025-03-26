@@ -21,14 +21,17 @@ const theme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    primary: '#4285F4',
-    accent: '#FF8C00',
-    background: '#FFFFFF',
-    surface: '#FFFFFF',
-    text: '#333333',
-    error: '#D32F2F',
-    notification: '#FF8C00',
-    placeholder: '#9E9E9E',
+    primary: '#2563EB',         // Primary Blue
+    secondary: '#0EA5E9',       // Secondary Teal
+    accent: '#F59E0B',          // Accent Orange
+    success: '#10B981',         // Accent Green
+    background: '#F8FAFC',      // Light Blue-Gray Background
+    surface: '#FFFFFF',         // White Surface
+    text: '#1F2937',            // Dark Gray Text
+    secondaryText: '#6B7280',   // Medium Gray Secondary Text
+    error: '#F43F5E',           // Error Red
+    notification: '#F59E0B',    // Notification Orange (same as accent)
+    placeholder: '#9CA3AF',     // Placeholder Text
   },
 };
 

@@ -1,12 +1,14 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { Text, Card, Title, Paragraph, useTheme, Button, Badge } from 'react-native-paper';
+import { Text, Card, Title, Paragraph, useTheme, Button, Badge, Divider } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import TutorCalendar from '../../components/TutorCalendar';
 import { getUserSessions } from '../../utils/tutorUtils';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 
 const TutorAvailabilityScreen = ({ navigation }) => {
   const { user } = useAuth();
@@ -84,26 +86,29 @@ const TutorAvailabilityScreen = ({ navigation }) => {
   // Memoize session cards to prevent unnecessary re-renders
   const sessionCards = useMemo(() => {
     return todaySessions.map((session) => (
-      <Card key={session.id} style={styles.sessionCard}>
+      <Card key={session.id} style={styles.sessionCard} mode="elevated">
         <Card.Content>
           <View style={styles.sessionHeader}>
             <Title style={styles.subject}>{session.subject}</Title>
-            <Text style={styles.time}>
-              {session.startTime} - {session.endTime}
-            </Text>
+            <View style={styles.timeContainer}>
+              <MaterialIcons name="access-time" size={18} color="#0EA5E9" style={styles.timeIcon} />
+              <Text style={styles.time}>
+                {session.startTime} - {session.endTime}
+              </Text>
+            </View>
           </View>
           
           <View style={styles.detailsContainer}>
             <View style={styles.detailRow}>
-              <MaterialIcons name="person" size={20} color="#666" />
+              <MaterialIcons name="person" size={20} color="#2563EB" />
               <Paragraph style={styles.detailText}>
-                Student: {session.studentName}
+                {session.studentName}
               </Paragraph>
             </View>
             
             {session.studentEmail && (
               <View style={styles.detailRow}>
-                <MaterialIcons name="email" size={20} color="#666" />
+                <MaterialIcons name="email" size={20} color="#2563EB" />
                 <Paragraph style={styles.detailText}>
                   {session.studentEmail}
                 </Paragraph>
@@ -111,9 +116,9 @@ const TutorAvailabilityScreen = ({ navigation }) => {
             )}
             
             <View style={styles.detailRow}>
-              <MaterialIcons name="attach-money" size={20} color="#666" />
+              <MaterialIcons name="attach-money" size={20} color="#10B981" />
               <Paragraph style={styles.detailText}>
-                Rate: ${session.hourlyRate}/hr
+                ${session.hourlyRate}/hr
               </Paragraph>
             </View>
           </View>
@@ -135,16 +140,19 @@ const TutorAvailabilityScreen = ({ navigation }) => {
 
     if (todaySessions.length === 0) {
       return (
-        <Text style={styles.noSessionsText}>
-          You have no sessions scheduled for today
-        </Text>
+        <View style={styles.emptyStateContainer}>
+          <MaterialIcons name="event-busy" size={40} color="#6B7280" />
+          <Text style={styles.noSessionsText}>
+            You have no sessions scheduled for today
+          </Text>
+        </View>
       );
     }
 
     return (
       <View>
-        <Text style={styles.sectionTitle}>
-          Today's Sessions ({todaySessions.length})
+        <Text style={styles.sectionSubtitle}>
+          {todaySessions.length} session{todaySessions.length !== 1 ? 's' : ''} scheduled today
         </Text>
         {sessionCards}
       </View>
@@ -154,38 +162,54 @@ const TutorAvailabilityScreen = ({ navigation }) => {
   // Memoize session requests section
   const sessionRequestsSection = useMemo(() => {
     return (
-      <Card style={styles.cardContainer}>
-        <Card.Content>
-          <View style={styles.cardHeader}>
-            <Title>Session Requests</Title>
-            {pendingRequestsCount > 0 && (
-              <Badge style={styles.requestBadge}>{pendingRequestsCount}</Badge>
-            )}
-          </View>
-          
-          {isLoadingRequests ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={theme.colors.primary} />
-              <Text style={styles.loadingText}>Loading requests...</Text>
+      <Card style={styles.cardContainer} mode="elevated">
+        <LinearGradient
+          colors={['#F0F9FF', '#E0F2FE']}
+          style={styles.cardGradient}
+        >
+          <Card.Content>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardTitleContainer}>
+                <MaterialIcons name="notifications" size={24} color="#2563EB" style={styles.cardIcon} />
+                <Title style={styles.cardTitle}>Session Requests</Title>
+              </View>
+              {pendingRequestsCount > 0 && (
+                <Badge style={styles.requestBadge} size={24}>{pendingRequestsCount}</Badge>
+              )}
             </View>
-          ) : (
-            <Paragraph style={styles.requestsText}>
-              {pendingRequestsCount > 0 ? 
-               `You have ${pendingRequestsCount} pending session request${pendingRequestsCount > 1 ? 's' : ''}` : 
-               'No pending session requests'}
-            </Paragraph>
-          )}
-          
-          <Button
-            mode="contained"
-            onPress={() => navigation.navigate('SessionRequests')}
-            style={styles.requestsButton}
-            icon="calendar-check"
-            disabled={isLoadingRequests}
-          >
-            {pendingRequestsCount > 0 ? 'View Requests' : 'Check Requests'}
-          </Button>
-        </Card.Content>
+            
+            {isLoadingRequests ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+                <Text style={styles.loadingText}>Loading requests...</Text>
+              </View>
+            ) : (
+              <View style={styles.requestsContainer}>
+                <MaterialIcons 
+                  name={pendingRequestsCount > 0 ? "mark-email-unread" : "mark-email-read"} 
+                  size={36} 
+                  color={pendingRequestsCount > 0 ? "#F59E0B" : "#6B7280"} 
+                  style={styles.requestsIcon}
+                />
+                <Paragraph style={styles.requestsText}>
+                  {pendingRequestsCount > 0 ? 
+                   `You have ${pendingRequestsCount} pending session request${pendingRequestsCount > 1 ? 's' : ''}` : 
+                   'No pending session requests'}
+                </Paragraph>
+              </View>
+            )}
+            
+            <Button
+              mode="contained"
+              onPress={() => navigation.navigate('SessionRequests')}
+              style={styles.requestsButton}
+              icon="calendar-check"
+              disabled={isLoadingRequests}
+            >
+              {pendingRequestsCount > 0 ? 'View Requests' : 'Check Requests'}
+            </Button>
+          </Card.Content>
+        </LinearGradient>
       </Card>
     );
   }, [isLoadingRequests, pendingRequestsCount, navigation, theme.colors.primary]);
@@ -193,41 +217,62 @@ const TutorAvailabilityScreen = ({ navigation }) => {
   // Memoize today's sessions card
   const todaySessionsCard = useMemo(() => {
     return (
-      <Card style={styles.cardContainer}>
-        <Card.Content>
-          <View style={styles.cardHeader}>
-            <Title>Today's Sessions</Title>
-            <Button
-              mode="contained"
-              onPress={() => navigation.navigate('ManageSessions')}
-              style={styles.viewAllButton}
-              disabled={isLoading}
-            >
-              View All
-            </Button>
-          </View>
-          
-          {todaySessionsSection}
-        </Card.Content>
+      <Card style={styles.cardContainer} mode="elevated">
+        <LinearGradient
+          colors={['#F0F9FF', '#E0F2FE']}
+          style={styles.cardGradient}
+        >
+          <Card.Content>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardTitleContainer}>
+                <MaterialIcons name="today" size={24} color="#2563EB" style={styles.cardIcon} />
+                <Title style={styles.cardTitle}>Today's Sessions</Title>
+              </View>
+              <Button
+                mode="contained"
+                onPress={() => navigation.navigate('ManageSessions')}
+                style={styles.viewAllButton}
+                disabled={isLoading}
+                labelStyle={styles.buttonLabel}
+              >
+                View All
+              </Button>
+            </View>
+            
+            <Divider style={styles.divider} />
+            
+            {todaySessionsSection}
+          </Card.Content>
+        </LinearGradient>
       </Card>
     );
   }, [todaySessionsSection, navigation, isLoading]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+      <StatusBar style="dark" />
+      
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Set Availability</Text>
+      </View>
+      
       <ScrollView 
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Tutor Dashboard</Text>
-        </View>
-
-        {todaySessionsCard}
+        <Text style={styles.sectionTitle}>Tutor Dashboard</Text>
+        
         {sessionRequestsSection}
-
-        <TutorCalendar navigation={navigation} />
+        {todaySessionsCard}
+        
+        <View style={styles.calendarContainer}>
+          <Text style={styles.sectionTitle}>Manage Your Schedule</Text>
+          <Text style={styles.sectionSubtitle}>
+            Set your availability by selecting dates and time slots
+          </Text>
+          <TutorCalendar navigation={navigation} />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -236,120 +281,201 @@ const TutorAvailabilityScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#F8FAFC',
   },
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#F8FAFC',
   },
   contentContainer: {
-    paddingBottom: 20,
+    paddingBottom: 30,
   },
   header: {
-    backgroundColor: '#2196F3',
-    padding: 16,
-    elevation: 4,
+    backgroundColor: '#2563EB',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 3,
+    elevation: 4,
+    marginBottom: 8,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: 'white',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginTop: 24,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+  },
+  sectionSubtitle: {
+    fontSize: 16,
+    color: '#4B5563',
+    marginBottom: 16,
+    paddingHorizontal: 16,
   },
   cardContainer: {
-    margin: 16,
-    marginBottom: 8,
-    borderRadius: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#1F2937',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 1,
+    shadowRadius: 4,
   },
-  sessionCard: {
-    marginVertical: 8,
-    borderRadius: 8,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
+  cardGradient: {
+    width: '100%',
+    padding: 2,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
+    paddingVertical: 4,
   },
-  viewAllButton: {
-    height: 40,
+  cardTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardIcon: {
+    marginRight: 12,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#CBD5E1',
+    marginVertical: 16,
+  },
+  sessionCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#1F2937',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2563EB',
   },
   sessionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
   subject: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    flex: 1,
+  },
+  timeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  timeIcon: {
+    marginRight: 6,
   },
   time: {
     fontSize: 14,
-    color: '#666',
+    color: '#2563EB',
+    fontWeight: '500',
   },
   detailsContainer: {
-    marginTop: 10,
+    marginTop: 12,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 4,
+    marginBottom: 10,
   },
   detailText: {
-    marginLeft: 8,
     fontSize: 14,
-    color: '#333',
+    color: '#4B5563',
+    marginLeft: 12,
+    flex: 1,
   },
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 10,
-  },
-  noSessionsText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+    padding: 24,
   },
   loadingText: {
-    marginLeft: 8,
     fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+    color: '#6B7280',
+    marginLeft: 12,
   },
-  sectionTitle: {
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 28,
+  },
+  noSessionsText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    marginTop: 8,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  viewAllButton: {
+    backgroundColor: '#2563EB',
+    borderRadius: 8,
+    elevation: 0,
+    paddingHorizontal: 16,
+  },
+  buttonLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  requestsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  requestsIcon: {
     marginBottom: 12,
-    color: '#333',
   },
   requestsText: {
-    marginVertical: 10,
     fontSize: 16,
-    color: '#666',
-  },
-  requestsButton: {
-    marginTop: 8,
+    color: '#4B5563',
+    textAlign: 'center',
+    marginBottom: 12,
   },
   requestBadge: {
-    backgroundColor: '#f44336',
-    color: 'white',
+    backgroundColor: '#F59E0B',
+  },
+  requestsButton: {
+    marginTop: 12,
+    marginBottom: 8,
+    backgroundColor: '#2563EB',
+    borderRadius: 8,
+    elevation: 0,
+    paddingVertical: 8,
+  },
+  calendarContainer: {
+    marginTop: 16,
+    paddingBottom: 20,
   },
 });
 

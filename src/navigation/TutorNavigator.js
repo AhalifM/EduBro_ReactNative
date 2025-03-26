@@ -33,7 +33,7 @@ const ScheduleStack = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: true,
+        headerShown: true
       }}
     >
       <Stack.Screen 
@@ -65,7 +65,7 @@ const MessagesStack = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: true,
+        headerShown: true
       }}
     >
       <Stack.Screen 
@@ -87,13 +87,15 @@ const ProfileStack = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: true,
+        headerShown: true
       }}
     >
       <Stack.Screen 
         name="TutorProfile" 
         component={TutorProfileScreen} 
-        options={{ headerTitle: 'My Profile' }}
+        options={{ 
+          headerShown: false 
+        }}
       />
       <Stack.Screen 
         name="EditSubjects" 

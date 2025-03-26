@@ -184,4 +184,36 @@ export const checkUserExists = async (email) => {
     console.error('Error checking if user exists:', error);
     return false;
   }
+};
+
+/**
+ * Validates if a string is a valid image URL
+ * @param {string} url - The URL to validate
+ * @returns {boolean} Whether the URL is valid
+ */
+export const isValidImageUrl = (url) => {
+  try {
+    return url && (
+      url.startsWith('http://') || 
+      url.startsWith('https://') || 
+      url.startsWith('data:image/')
+    );
+  } catch (e) {
+    return false;
+  }
+};
+
+/**
+ * Gets the appropriate profile image source
+ * @param {Object} user - User object with photoURL
+ * @param {boolean} hasError - Whether there was an error loading the image
+ * @returns {Object} Image source object for React Native Avatar component
+ */
+export const getProfileImageSource = (user, hasError = false) => {
+  if (user && user.photoURL && isValidImageUrl(user.photoURL) && !hasError) {
+    return { uri: user.photoURL };
+  }
+  // Note: We can't use require here because it must have a static string
+  // Instead, we'll return null and let the component handle the default
+  return null;
 }; 

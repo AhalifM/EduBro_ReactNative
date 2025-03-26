@@ -117,6 +117,16 @@ export const addAvailabilitySlot = async (tutorId, date, startTime, endTime) => 
       return { success: false, error: "Invalid date format" };
     }
     
+    // Validate that the date is not in the past
+    const selectedDate = new Date(dateString);
+    selectedDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (selectedDate < today) {
+      return { success: false, error: "Cannot set availability for past dates" };
+    }
+    
     // Handle case where startTime is an array of times (for bulk adding)
     if (Array.isArray(startTime)) {
       // If it's an array with one time slot, use that
@@ -225,6 +235,16 @@ export const removeAvailabilitySlot = async (tutorId, date, startTime, endTime) 
       dateString = date.toISOString().split('T')[0];
     } else {
       return { success: false, error: "Invalid date format" };
+    }
+    
+    // Validate that the date is not in the past
+    const selectedDate = new Date(dateString);
+    selectedDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (selectedDate < today) {
+      return { success: false, error: "Cannot modify availability for past dates" };
     }
     
     // If startTime is not provided or not a string

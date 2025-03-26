@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { TextInput, Button, Text, useTheme, Avatar, HelperText } from 'react-native-paper';
+import { TextInput, Button, Text, useTheme, Avatar, HelperText, Chip } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { updateUserProfile } from '../../utils/auth';
+import { getAllSubjects } from '../../utils/tutorUtils';
 
 const EditProfileScreen = ({ navigation }) => {
   const { user, refreshUserData } = useAuth();
@@ -14,6 +15,9 @@ const EditProfileScreen = ({ navigation }) => {
   // Form state
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [subjects, setSubjects] = useState([]);
+  const [selectedSubjects, setSelectedSubjects] = useState([]);
+  const [loadingSubjects, setLoadingSubjects] = useState(false);
   
   // Validation state
   const [errors, setErrors] = useState({
@@ -26,8 +30,35 @@ const EditProfileScreen = ({ navigation }) => {
     if (user) {
       setFullName(user.fullName || user.displayName || '');
       setPhoneNumber(user.phoneNumber || '');
+      setSelectedSubjects(user.interestedSubjects || []);
     }
+    
+    fetchSubjects();
   }, [user]);
+  
+  const fetchSubjects = async () => {
+    setLoadingSubjects(true);
+    try {
+      const result = await getAllSubjects();
+      if (result.success) {
+        setSubjects(result.subjects);
+      }
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+    } finally {
+      setLoadingSubjects(false);
+    }
+  };
+
+  const handleSubjectToggle = (subjectId) => {
+    setSelectedSubjects(prev => {
+      if (prev.includes(subjectId)) {
+        return prev.filter(id => id !== subjectId);
+      } else {
+        return [...prev, subjectId];
+      }
+    });
+  };
   
   const validateForm = () => {
     let isValid = true;
@@ -64,6 +95,7 @@ const EditProfileScreen = ({ navigation }) => {
       const result = await updateUserProfile(user.uid, {
         fullName,
         phoneNumber,
+        interestedSubjects: selectedSubjects,
         updatedAt: new Date().toISOString(),
       });
       
@@ -133,6 +165,37 @@ const EditProfileScreen = ({ navigation }) => {
               {errors.phoneNumber}
             </HelperText>
             
+            <View style={styles.subjectsSection}>
+              <Text style={styles.sectionTitle}>Subjects I'm Interested In</Text>
+              {loadingSubjects ? (
+                <ActivityIndicator size="small" color="#2196F3" />
+              ) : (
+                <View style={styles.chipsContainer}>
+                  {subjects.map(subject => (
+                    <Chip
+                      key={subject.id}
+                      selected={selectedSubjects.includes(subject.id)}
+                      style={[
+                        styles.chip,
+                        selectedSubjects.includes(subject.id) && styles.selectedChip
+                      ]}
+                      textStyle={[
+                        styles.chipText,
+                        selectedSubjects.includes(subject.id) && styles.selectedChipText
+                      ]}
+                      onPress={() => handleSubjectToggle(subject.id)}
+                      mode="outlined"
+                    >
+                      {subject.name}
+                    </Chip>
+                  ))}
+                </View>
+              )}
+              <Text style={styles.helperText}>
+                Select subjects you want to learn. This helps us show tutors relevant to your interests.
+              </Text>
+            </View>
+
             <View style={styles.buttonContainer}>
               <Button
                 mode="outlined"
@@ -205,6 +268,41 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: '#4a90e2',
+  },
+  subjectsSection: {
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
+  },
+  chipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 10,
+  },
+  chip: {
+    margin: 4,
+    backgroundColor: '#f0f7ff',
+    borderColor: '#2196F3',
+  },
+  selectedChip: {
+    backgroundColor: '#2196F3',
+  },
+  chipText: {
+    color: '#2196F3',
+  },
+  selectedChipText: {
+    color: '#fff',
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 4,
   },
 });
 

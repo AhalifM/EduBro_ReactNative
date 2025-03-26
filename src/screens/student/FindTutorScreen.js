@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getAllTutors, getAllSubjects, getTutorAvailability } from '../../utils/tutorUtils';
+import { getCurrentUser } from '../../utils/auth';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import TutorFilterModal from '../../components/TutorFilterModal';
 import { format } from 'date-fns';
@@ -32,13 +33,16 @@ const FindTutorScreen = ({ navigation }) => {
     date: null
   });
   const [tutorAvailability, setTutorAvailability] = useState({});
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
     fetchTutorsAndSubjects();
+    fetchCurrentUser();
     
     // Add focus listener to refresh data when screen is focused
     const unsubscribe = navigation.addListener('focus', () => {
       fetchTutorsAndSubjects();
+      fetchCurrentUser();
     });
 
     // Cleanup the listener on unmount
@@ -65,6 +69,17 @@ const FindTutorScreen = ({ navigation }) => {
     } finally {
       setIsLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const fetchCurrentUser = async () => {
+    try {
+      const userData = await getCurrentUser();
+      if (userData) {
+        setCurrentUser(userData);
+      }
+    } catch (error) {
+      console.error('Error fetching current user:', error);
     }
   };
 
@@ -134,6 +149,14 @@ const FindTutorScreen = ({ navigation }) => {
     if (activeFilters.subject) {
       filtered = filtered.filter(tutor => 
         tutor.subjects && tutor.subjects.includes(activeFilters.subject.id)
+      );
+    } 
+    // If no subject filter is active but the student has interests, filter by their interests
+    else if (currentUser?.interestedSubjects && currentUser.interestedSubjects.length > 0) {
+      filtered = filtered.filter(tutor => 
+        tutor.subjects && tutor.subjects.some(subjectId => 
+          currentUser.interestedSubjects.includes(subjectId)
+        )
       );
     }
 

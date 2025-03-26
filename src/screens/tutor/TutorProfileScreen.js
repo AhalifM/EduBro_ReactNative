@@ -1,13 +1,15 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Alert, RefreshControl, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, Alert, RefreshControl, ActivityIndicator, ImageBackground, Platform } from 'react-native';
 import { Text, Button, Card, Avatar, useTheme, Chip } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAllSubjects, getUserSessions } from '../../utils/tutorUtils';
-import { logoutUser } from '../../utils/auth';
+import { logoutUser, isValidImageUrl } from '../../utils/auth';
 import { CommonActions } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 
 const TutorProfileScreen = ({ navigation }) => {
   const { user, signOut, refreshUserData } = useAuth();
@@ -18,6 +20,7 @@ const TutorProfileScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
   const [studentsHelped, setStudentsHelped] = useState(0);
+  const [avatarError, setAvatarError] = useState(false);
   const theme = useTheme();
 
   // Format rating with one decimal place
@@ -125,29 +128,38 @@ const TutorProfileScreen = ({ navigation }) => {
       <Chip 
         key={`${subject.id}`}
         style={styles.subjectChip}
-        textStyle={{ color: theme.colors.primary }}
+        textStyle={{ color: '#2563EB' }}
       >
         {subject.name || 'Unknown Subject'}
       </Chip>
     ));
-  }, [subjects, theme.colors.primary]);
+  }, [subjects]);
 
   // Memoize the teaching stats section
   const teachingStatsSection = useMemo(() => {
     return (
-      <Card style={styles.infoCard}>
+      <Card style={styles.statsCard} mode="elevated">
         <Card.Content>
           <Text style={styles.cardTitle}>Your Teaching Stats</Text>
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
+              <View style={[styles.statBadge, { backgroundColor: '#2563EB20' }]}>
+                <MaterialIcons name="school" size={24} color="#2563EB" />
+              </View>
               <Text style={styles.statNumber}>{sessionsCompleted}</Text>
               <Text style={styles.statLabel}>Sessions</Text>
             </View>
             <View style={styles.statItem}>
+              <View style={[styles.statBadge, { backgroundColor: '#F59E0B20' }]}>
+                <MaterialIcons name="people" size={24} color="#F59E0B" />
+              </View>
               <Text style={styles.statNumber}>{studentsHelped}</Text>
               <Text style={styles.statLabel}>Students</Text>
             </View>
             <View style={styles.statItem}>
+              <View style={[styles.statBadge, { backgroundColor: '#10B98120' }]}>
+                <MaterialIcons name="book" size={24} color="#10B981" />
+              </View>
               <Text style={styles.statNumber}>{subjects.length}</Text>
               <Text style={styles.statLabel}>Subjects</Text>
             </View>
@@ -160,24 +172,37 @@ const TutorProfileScreen = ({ navigation }) => {
   // Memoize the upcoming sessions section
   const upcomingSessionsSection = useMemo(() => {
     return (
-      <Card style={styles.infoCard}>
+      <Card style={styles.infoCard} mode="elevated">
         <Card.Content>
-          <Text style={styles.cardTitle}>Upcoming Sessions</Text>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardTitle}>Upcoming Sessions</Text>
+            <MaterialIcons name="event" size={24} color="#2563EB" />
+          </View>
           {loadingSessions ? (
             <View style={styles.loadingSessionContainer}>
-              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <ActivityIndicator size="small" color="#2563EB" />
               <Text style={styles.loadingText}>Loading sessions...</Text>
             </View>
           ) : (
-            <Text style={styles.sessionCountText}>
-              {todaySessionCount > 0
-                ? `You have ${todaySessionCount} session${todaySessionCount > 1 ? 's' : ''} for today`
-                : 'You have no sessions scheduled for today'}
-            </Text>
+            <View style={styles.sessionStatusContainer}>
+              <MaterialIcons 
+                name={todaySessionCount > 0 ? "event-available" : "event-busy"} 
+                size={36} 
+                color={todaySessionCount > 0 ? "#10B981" : "#6B7280"} 
+                style={styles.sessionStatusIcon}
+              />
+              <Text style={styles.sessionCountText}>
+                {todaySessionCount > 0
+                  ? `You have ${todaySessionCount} session${todaySessionCount > 1 ? 's' : ''} for today`
+                  : 'You have no sessions scheduled for today'}
+              </Text>
+            </View>
           )}
           <Button 
             mode="contained" 
             style={styles.viewAllButton}
+            buttonColor="#2563EB"
+            textColor="#FFFFFF"
             onPress={() => navigation.navigate('Schedule', { screen: 'ManageSessions' })}
             disabled={loadingSessions}
           >
@@ -186,7 +211,24 @@ const TutorProfileScreen = ({ navigation }) => {
         </Card.Content>
       </Card>
     );
-  }, [loadingSessions, todaySessionCount, navigation, theme.colors.primary]);
+  }, [loadingSessions, todaySessionCount, navigation]);
+
+  // Safely determine profile image source
+  const getProfileImageSource = () => {
+    // Check if user has a photoURL and it's a valid URL
+    if (user?.photoURL && 
+        isValidImageUrl(user.photoURL) && 
+        !avatarError) {
+      return { uri: user.photoURL };
+    }
+    // Fallback to default avatar
+    return require('../../../assets/icon.png');
+  };
+
+  useEffect(() => {
+    // Reset avatar error state when user profile changes
+    setAvatarError(false);
+  }, [user?.photoURL]);
 
   if (!user) {
     return (
@@ -200,7 +242,7 @@ const TutorProfileScreen = ({ navigation }) => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size="large" color="#2563EB" />
           <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
       </SafeAreaView>
@@ -208,59 +250,86 @@ const TutorProfileScreen = ({ navigation }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      <StatusBar style="light" />
       <ScrollView
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#2196F3']}
-            tintColor={'#2196F3'}
+            colors={['#2563EB']}
+            tintColor={'#2563EB'}
           />
         }
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Avatar.Image
-            size={100}
-            source={user.photoURL ? { uri: user.photoURL } : require('../../../assets/icon.png')}
-            style={styles.avatar}
-          />
-          <Text style={styles.name}>{user.fullName || user.displayName || 'Tutor'}</Text>
-          <Text style={styles.email}>{user.email || ''}</Text>
-          <Text style={styles.role}>Tutor</Text>
-          
-          <View style={styles.ratingContainer}>
-            <Text style={styles.rating}>{rating} ★</Text>
-            <Text style={styles.ratingText}>Tutor Rating {user?.totalReviews > 0 ? `(${user?.totalReviews} reviews)` : ''}</Text>
-          </View>
-          
-          <Button 
-            mode="outlined" 
-            style={styles.editProfileButton}
-            onPress={() => navigation.navigate('EditProfile')}
+        <View style={styles.headerContainer}>
+          <LinearGradient
+            colors={['#2563EB', '#0EA5E9']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0.7 }}
+            style={styles.headerGradient}
           >
-            Edit Profile
-          </Button>
+            <View style={styles.headerContent}>
+              <View style={styles.avatarContainer}>
+                <Avatar.Image
+                  size={100}
+                  source={getProfileImageSource()}
+                  style={styles.avatar}
+                  onError={() => setAvatarError(true)}
+                />
+              </View>
+              <Text style={styles.name}>{user.fullName || user.displayName || 'Tutor'}</Text>
+              <Text style={styles.email}>{user.email || ''}</Text>
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleText}>Tutor</Text>
+              </View>
+              
+              <View style={styles.ratingContainer}>
+                <MaterialIcons name="star" size={20} color="#F59E0B" />
+                <Text style={styles.rating}>{rating}</Text>
+                <Text style={styles.ratingText}>{user?.totalReviews > 0 ? `(${user?.totalReviews} reviews)` : '(No reviews yet)'}</Text>
+              </View>
+              
+              <Button 
+                mode="contained" 
+                style={styles.editProfileButton}
+                buttonColor="#FFFFFF"
+                textColor="#2563EB"
+                icon="account-edit"
+                onPress={() => navigation.navigate('EditProfile')}
+              >
+                Edit Profile
+              </Button>
+            </View>
+          </LinearGradient>
         </View>
 
         {teachingStatsSection}
 
-        <Card style={styles.infoCard}>
+        <Card style={styles.infoCard} mode="elevated">
           <Card.Content>
-            <Text style={styles.cardTitle}>Upcoming Teaching Subjects</Text>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>Teaching Subjects</Text>
+              <MaterialIcons name="category" size={24} color="#2563EB" />
+            </View>
             {subjects.length > 0 ? (
               <View style={styles.subjectsContainer}>
                 {subjectChips}
               </View>
             ) : (
-              <Text style={styles.emptyText}>
-                You haven't added any subjects yet. Add subjects to be visible to students.
-              </Text>
+              <View style={styles.emptyStateContainer}>
+                <MaterialIcons name="category" size={40} color="#6B7280" />
+                <Text style={styles.emptyText}>
+                  You haven't added any subjects yet. Add subjects to be visible to students.
+                </Text>
+              </View>
             )}
             <Button 
               mode="outlined" 
               style={styles.editButton}
+              textColor="#2563EB"
+              icon={subjects.length > 0 ? "pencil" : "plus"}
               onPress={() => navigation.navigate('EditSubjects')}
             >
               {subjects.length > 0 ? 'Edit Subjects' : 'Add Subjects'}
@@ -273,6 +342,8 @@ const TutorProfileScreen = ({ navigation }) => {
         <Button 
           mode="outlined" 
           style={styles.logoutButton}
+          textColor="#F43F5E"
+          icon="logout-variant"
           onPress={handleLogout}
         >
           Logout
@@ -285,116 +356,200 @@ const TutorProfileScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#F8FAFC',
   },
-  header: {
+  headerContainer: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    margin: 16,
+    marginTop: Platform.OS === 'ios' ? 44 : 16,
+    elevation: 4,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  headerGradient: {
+    width: '100%',
+    paddingTop: Platform.OS === 'ios' ? 0 : 20,
+  },
+  headerContent: {
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    margin: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
+    padding: 24,
+  },
+  avatarContainer: {
+    marginBottom: 16,
+    borderRadius: 60,
+    padding: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: "rgba(0,0,0,0.2)",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.5,
+    shadowRadius: 5,
   },
   avatar: {
-    marginBottom: 10,
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF',
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
   },
   name: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: 5,
+    color: '#FFFFFF',
+    marginBottom: 6,
   },
   email: {
     fontSize: 16,
-    color: '#666',
-    marginBottom: 5,
+    color: '#FFFFFF',
+    marginBottom: 12,
+    opacity: 0.8,
   },
-  role: {
-    fontSize: 16,
-    color: '#2196F3',
-    marginBottom: 10,
+  roleBadge: {
+    backgroundColor: '#FFFFFF30',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginBottom: 12,
+  },
+  roleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 20,
+    backgroundColor: '#FFFFFF30',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
   rating: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFC107',
-    marginRight: 5,
+    color: '#FFFFFF',
+    marginLeft: 6,
+    marginRight: 6,
   },
   ratingText: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.8,
+  },
+  editProfileButton: {
+    marginTop: 8,
+    elevation: 2,
+    minWidth: 160,
+  },
+  statsCard: {
+    margin: 16,
+    borderRadius: 16,
+    elevation: 3,
+    shadowColor: '#1F2937',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    backgroundColor: '#FFFFFF',
   },
   infoCard: {
-    margin: 10,
-    elevation: 2,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    margin: 16,
+    borderRadius: 16,
+    elevation: 3,
+    shadowColor: '#1F2937',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 1,
+    shadowRadius: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333',
+    color: '#1F2937',
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    marginTop: 10,
     marginBottom: 10,
   },
   statItem: {
     alignItems: 'center',
+    flex: 1,
+  },
+  statBadge: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: '#1F2937',
+    marginBottom: 4,
   },
   statLabel: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
   },
   subjectsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 15,
+    marginBottom: 16,
   },
   subjectChip: {
     margin: 4,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: '#EFF6FF',
   },
   editButton: {
-    marginTop: 10,
+    marginTop: 8,
+    borderColor: '#2563EB',
+  },
+  sessionStatusContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 16,
+  },
+  sessionStatusIcon: {
+    marginBottom: 8,
   },
   sessionCountText: {
     fontSize: 16,
-    color: '#666',
+    color: '#1F2937',
     textAlign: 'center',
-    marginVertical: 16,
   },
   viewAllButton: {
-    marginTop: 8,
+    marginTop: 12,
+    elevation: 2,
   },
   logoutButton: {
-    margin: 10,
-    marginTop: 20,
+    margin: 16,
+    marginTop: 8,
     marginBottom: 30,
+    borderColor: '#F43F5E',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    backgroundColor: '#F8FAFC',
   },
   loadingSessionContainer: {
     flexDirection: 'row',
@@ -404,18 +559,22 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#666',
+    color: '#6B7280',
     textAlign: 'center',
     marginLeft: 10,
   },
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
   emptyText: {
     fontSize: 16,
-    color: '#666',
+    color: '#6B7280',
     textAlign: 'center',
-    marginBottom: 15,
-  },
-  editProfileButton: {
-    marginTop: 10,
+    marginTop: 12,
+    marginBottom: 12,
+    lineHeight: 22,
   },
 });
 
