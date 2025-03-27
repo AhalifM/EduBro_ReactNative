@@ -21,16 +21,16 @@ const theme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    primary: '#9C27B0',         // Primary Purple (matches logo)
+    primary: '#6a0dad',         // Primary deep Purple 
     secondary: '#E91E63',       // Secondary Pink (matches logo)
-    accent: '#673AB7',          // Accent Deep Purple (matches logo)
+    accent: '#4b0082',          // Accent Indigo (matches logo)
     success: '#4CAF50',         // Success Green
     background: '#F8F9FA',      // Light Background
     surface: '#FFFFFF',         // White Surface
     text: '#212121',            // Dark Text
     secondaryText: '#757575',   // Medium Gray Secondary Text
     error: '#F44336',           // Error Red
-    notification: '#9C27B0',    // Notification Purple (same as primary)
+    notification: '#6a0dad',    // Notification Purple (same as primary)
     placeholder: '#BDBDBD',     // Light Gray Placeholder Text
     card: '#FFFFFF',            // Card Background
     border: '#E0E0E0',          // Border Color

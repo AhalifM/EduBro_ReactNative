@@ -45,7 +45,57 @@ const MySessionsScreen = ({ navigation }) => {
       const result = await getUserSessions(user.uid, 'student');
       
       if (result.success) {
-        setSessions(result.sessions);
+        console.log(`Fetched ${result.sessions?.length || 0} sessions`);
+        
+        // Ensure sessions is an array
+        if (!Array.isArray(result.sessions)) {
+          console.error('Sessions is not an array:', result.sessions);
+          setSessions([]);
+          return;
+        }
+        
+        // Remove any null/undefined sessions
+        const validSessions = result.sessions.filter(session => 
+          session !== undefined && 
+          session !== null && 
+          typeof session === 'object'
+        );
+        
+        if (validSessions.length !== result.sessions.length) {
+          console.warn(`Filtered out ${result.sessions.length - validSessions.length} null/undefined sessions`);
+        }
+        
+        // Validate each session has required fields
+        const requiredFields = ['id', 'date', 'status'];
+        const fullySanitizedSessions = validSessions.map((session, index) => {
+          // Deep clone to avoid any reference issues
+          const sanitizedSession = {...session};
+          
+          // Check for required fields
+          for (const field of requiredFields) {
+            if (!sanitizedSession[field]) {
+              console.warn(`Session at index ${index} missing ${field}:`, sanitizedSession);
+              return null; // Filter out this session
+            }
+          }
+          
+          // Ensure date is valid
+          try {
+            new Date(sanitizedSession.date);
+          } catch (error) {
+            console.warn(`Session at index ${index} has invalid date:`, sanitizedSession);
+            return null;
+          }
+          
+          return sanitizedSession;
+        }).filter(session => session !== null);
+        
+        if (fullySanitizedSessions.length !== validSessions.length) {
+          console.warn(`Filtered out ${validSessions.length - fullySanitizedSessions.length} sessions with invalid data`);
+        }
+        
+        console.log(`Setting ${fullySanitizedSessions.length} fully sanitized sessions`);
+        setSessions(fullySanitizedSessions);
       }
     } catch (error) {
       console.error('Error fetching sessions:', error);
@@ -73,31 +123,47 @@ const MySessionsScreen = ({ navigation }) => {
   );
 
   const filteredSessions = useMemo(() => {
+    if (!sessions || !Array.isArray(sessions) || sessions.length === 0) {
+      return [];
+    }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
+    // Since we've already sanitized the sessions data in fetchSessions,
+    // we can be more confident that all items have valid properties
     return sessions.filter(session => {
-      const sessionDate = new Date(session.date);
-      
-      if (filter === 'upcoming') {
-        return sessionDate >= today && (session.status === 'confirmed' || session.status === 'pending');
-      } else if (filter === 'past') {
-        return sessionDate < today || session.status === 'cancelled';
-      } else {
-        return true; // all
+      try {
+        const sessionDate = new Date(session.date);
+        
+        if (filter === 'upcoming') {
+          return sessionDate >= today && (session.status === 'confirmed' || session.status === 'pending');
+        } else if (filter === 'past') {
+          return sessionDate < today || session.status === 'cancelled';
+        } else {
+          return true; // all
+        }
+      } catch (error) {
+        console.error("Error in filteredSessions:", error, session);
+        return false;
       }
     }).sort((a, b) => {
-      // Sort by date
-      const dateA = new Date(a.date);
-      const dateB = new Date(b.date);
-      
-      if (dateA > dateB) return filter === 'past' ? -1 : 1;
-      if (dateA < dateB) return filter === 'past' ? 1 : -1;
-      
-      // If same date, sort by time
-      const timeA = a.startTime.replace(':', '');
-      const timeB = b.startTime.replace(':', '');
-      return filter === 'past' ? timeB - timeA : timeA - timeB;
+      try {
+        // Sort by date
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        
+        if (dateA > dateB) return filter === 'past' ? -1 : 1;
+        if (dateA < dateB) return filter === 'past' ? 1 : -1;
+        
+        // If same date, sort by time
+        const timeA = a.startTime?.replace(':', '') || '0000';
+        const timeB = b.startTime?.replace(':', '') || '0000';
+        return filter === 'past' ? Number(timeB) - Number(timeA) : Number(timeA) - Number(timeB);
+      } catch (error) {
+        console.error("Error sorting sessions:", error, { a, b });
+        return 0;
+      }
     });
   }, [sessions, filter]);
   
@@ -107,6 +173,12 @@ const MySessionsScreen = ({ navigation }) => {
   };
   
   const handleCancelSession = async (session) => {
+    if (!session || !session.date || !session.startTime) {
+      console.error("Invalid session object:", session);
+      Alert.alert("Error", "Invalid session information. Please try again later.");
+      return;
+    }
+
     // Check if session is within cancellation window (5 hours before)
     const sessionDateTime = new Date(`${session.date}T${session.startTime}`);
     const now = new Date();
@@ -155,6 +227,12 @@ const MySessionsScreen = ({ navigation }) => {
   };
   
   const handleCompleteSession = async (session) => {
+    if (!session || !session.date || !session.startTime) {
+      console.error("Invalid session object:", session);
+      Alert.alert("Error", "Invalid session information. Please try again later.");
+      return;
+    }
+
     // Check if session time has passed
     const [hours, minutes] = session.startTime.split(':').map(Number);
     const sessionDateTime = new Date(session.date);
@@ -389,13 +467,34 @@ const MySessionsScreen = ({ navigation }) => {
     );
   };
   
-  const renderSessionItem = ({ item }) => {
-    const sessionDate = new Date(item.date);
-    const formattedDate = sessionDate.toLocaleDateString(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
+  const renderSessionItem = ({ item, index }) => {
+    // Early return if item is undefined/null
+    if (!item) {
+      console.error(`Session at index ${index} is null or undefined`);
+      return null;
+    }
+    
+    // Validate all required fields
+    const requiredFields = ['id', 'date', 'status', 'subject', 'startTime', 'endTime'];
+    const missingFields = requiredFields.filter(field => !item[field]);
+    
+    if (missingFields.length > 0) {
+      console.error(`Session is missing required fields: ${missingFields.join(', ')}`, JSON.stringify(item, null, 2));
+      return null;
+    }
+
+    let formattedDate;
+    try {
+      const sessionDate = new Date(item.date);
+      formattedDate = sessionDate.toLocaleDateString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch (error) {
+      console.error("Error formatting session date:", error, item);
+      formattedDate = "Invalid date";
+    }
 
     const getStatusInfo = (status) => {
       switch (status) {
@@ -473,90 +572,103 @@ const MySessionsScreen = ({ navigation }) => {
             </Text>
           </View>
           
+          <View style={styles.divider} />
+          
           <View style={styles.actionsContainer}>
-            {item.status === 'confirmed' && (
-              <Button 
-                mode="contained"
-                buttonColor="#9C27B0"
-                icon="chat"
-                style={styles.actionButton}
-                onPress={() => navigation.navigate('MessagesTab', {
-                  screen: 'ChatDetails',
-                  params: { recipientId: item.tutorId, recipientName: item.tutorName }
-                })}
-              >
-                Contact Tutor
-              </Button>
-            )}
-            
-            {item.status === 'confirmed' && (
-              <Button 
-                mode="outlined"
-                style={styles.detailsButton}
-                textColor="#9C27B0"
-                onPress={() => navigation.navigate('TutorsTab', {
-                  screen: 'TutorDetail',
-                  params: { tutorId: item.tutorId }
-                })}
-              >
-                View Tutor
-              </Button>
-            )}
-            
-            {item.status === 'upcoming' && (
-              <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: '#F4433620' }]}
-                onPress={() => handleCancelSession(item)}
-              >
-                <Text style={[styles.actionButtonText, { color: '#F44336' }]}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-            )}
-            
-            {item.status === 'rescheduled' && (
-              <>
-                <TouchableOpacity
-                  style={[styles.actionButton, { backgroundColor: '#9C27B020' }]}
-                  onPress={() => handleAcceptReschedule(item)}
+            <View style={styles.primaryActions}>
+              {item.status === 'confirmed' && (
+                <Button 
+                  mode="contained"
+                  buttonColor="#9C27B0"
+                  icon="chat"
+                  style={styles.actionButton}
+                  onPress={() => navigation.navigate('MessagesTab', {
+                    screen: 'ChatDetails',
+                    params: { recipientId: item.tutorId, recipientName: item.tutorName }
+                  })}
                 >
-                  <Text style={[styles.actionButtonText, { color: '#9C27B0' }]}>
-                    Accept
-                  </Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[styles.actionButton, { backgroundColor: '#F4433620' }]}
-                  onPress={() => handleDeclineReschedule(item)}
+                  Contact Tutor
+                </Button>
+              )}
+              
+              {item.status === 'confirmed' && (
+                <Button 
+                  mode="contained"
+                  style={styles.detailsButton}
+                  textColor="#FFFFFF"
+                  onPress={() => navigation.navigate('TutorsTab', {
+                    screen: 'TutorDetail',
+                    params: { tutorId: item.tutorId }
+                  })}
                 >
-                  <Text style={[styles.actionButtonText, { color: '#F44336' }]}>
-                    Decline
-                  </Text>
-                </TouchableOpacity>
-              </>
-            )}
+                  View Tutor
+                </Button>
+              )}
+            </View>
             
-            {item.status === 'past' && item.status !== 'cancelled' && !item.reviewSubmitted && (
-              <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: '#9C27B020' }]}
-                onPress={() => handleLeaveReview(item)}
-              >
-                <Text style={[styles.actionButtonText, { color: '#9C27B0' }]}>
+            <View style={styles.secondaryActions}>
+              {item.status !== 'cancelled' && !item.reviewSubmitted && (
+                <Button 
+                  mode="contained"
+                  icon="star"
+                  style={styles.reviewButton}
+                  buttonColor="#FF9800"
+                  textColor="#FFFFFF"
+                  onPress={() => handleLeaveReview(item)}
+                >
                   Leave Review
-                </Text>
-              </TouchableOpacity>
-            )}
-            
-            {item.status === 'past' && item.status === 'completed' && (
-              <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: '#4CAF5020' }]}
-                onPress={() => handleCompleteSession(item)}
-              >
-                <Text style={[styles.actionButtonText, { color: '#4CAF50' }]}>
+                </Button>
+              )}
+              
+              {item.status === 'confirmed' && (
+                <Button 
+                  mode="contained"
+                  icon="check-circle"
+                  style={styles.completeButton}
+                  buttonColor="#4CAF50"
+                  textColor="#FFFFFF"
+                  onPress={() => handleCompleteSession(item)}
+                >
                   Complete
-                </Text>
-              </TouchableOpacity>
-            )}
+                </Button>
+              )}
+              
+              {item.status === 'upcoming' && (
+                <Button 
+                  mode="outlined"
+                  icon="close-circle"
+                  style={styles.cancelButton}
+                  textColor="#F44336"
+                  onPress={() => handleCancelSession(item)}
+                >
+                  Cancel
+                </Button>
+              )}
+              
+              {item.status === 'rescheduled' && (
+                <View style={styles.rescheduleButtonsContainer}>
+                  <Button 
+                    mode="outlined"
+                    icon="check"
+                    style={styles.acceptButton}
+                    textColor="#9C27B0"
+                    onPress={() => handleAcceptReschedule(item)}
+                  >
+                    Accept
+                  </Button>
+                  
+                  <Button 
+                    mode="outlined"
+                    icon="close"
+                    style={styles.rejectButton}
+                    textColor="#F44336"
+                    onPress={() => handleDeclineReschedule(item)}
+                  >
+                    Decline
+                  </Button>
+                </View>
+              )}
+            </View>
           </View>
         </Card.Content>
       </Card>
@@ -662,7 +774,14 @@ const MySessionsScreen = ({ navigation }) => {
             <Text style={styles.loadingText}>Loading your sessions...</Text>
           </View>
         ) : filteredSessions.length > 0 ? (
-          filteredSessions.map(renderSessionItem)
+          <FlatList
+            data={filteredSessions.filter(session => session !== undefined)}
+            renderItem={renderSessionItem}
+            keyExtractor={item => item.id}
+            contentContainerStyle={{ paddingBottom: 20 }}
+            scrollEnabled={false}
+            ListEmptyComponent={renderEmptyList}
+          />
         ) : (
           renderEmptyList()
         )}
@@ -825,7 +944,7 @@ const styles = StyleSheet.create({
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   priceText: {
     fontSize: 16,
@@ -833,19 +952,70 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     fontWeight: '500',
   },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 12,
+  },
   actionsContainer: {
+    marginTop: 8,
+  },
+  primaryActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 12,
+    justifyContent: 'flex-start',
+    marginBottom: 12,
+  },
+  secondaryActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    flexWrap: 'wrap',
+  },
+  rescheduleButtonsContainer: {
+    flexDirection: 'row',
   },
   actionButton: {
-    marginLeft: 12,
+    marginRight: 12,
     borderRadius: 8,
+    marginBottom: 8,
   },
   detailsButton: {
-    marginLeft: 12,
+    marginRight: 12,
     borderRadius: 8,
     borderColor: '#9C27B0',
+    marginBottom: 8,
+  },
+  reviewButton: {
+    marginRight: 12,
+    borderRadius: 8,
+    elevation: 2,
+    marginBottom: 8,
+  },
+  completeButton: {
+    marginRight: 12,
+    borderRadius: 8,
+    elevation: 2,
+    marginBottom: 8,
+  },
+  cancelButton: {
+    marginRight: 12,
+    borderRadius: 8,
+    borderColor: '#F44336',
+    borderWidth: 1.5,
+    marginBottom: 8,
+  },
+  acceptButton: {
+    marginRight: 12,
+    borderRadius: 8,
+    borderColor: '#9C27B0',
+    borderWidth: 1.5,
+    marginBottom: 8,
+  },
+  rejectButton: {
+    marginRight: 12,
+    borderRadius: 8,
+    borderColor: '#F44336',
+    borderWidth: 1.5,
+    marginBottom: 8,
   },
   loadingContainer: {
     flex: 1,

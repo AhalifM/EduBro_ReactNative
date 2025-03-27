@@ -14,7 +14,7 @@ import Slider from '@react-native-community/slider';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 
-const TutorFilterModal = ({ isVisible, onClose, onApplyFilters, subjects, initialFilters = {} }) => {
+const TutorFilterModal = ({ visible, onClose, onApplyFilters, subjects, initialFilters = {} }) => {
   const [filters, setFilters] = useState({
     subject: null,
     minRating: 0,
@@ -28,15 +28,17 @@ const TutorFilterModal = ({ isVisible, onClose, onApplyFilters, subjects, initia
 
   // Reset filters when modal is opened with new initialFilters
   useEffect(() => {
-    setFilters({
-      subject: null,
-      minRating: 0,
-      maxPrice: 100,
-      minPrice: 0,
-      date: null,
-      ...initialFilters
-    });
-  }, [initialFilters, isVisible]);
+    if (visible) {
+      setFilters({
+        subject: null,
+        minRating: 0,
+        maxPrice: 100,
+        minPrice: 0,
+        date: null,
+        ...initialFilters
+      });
+    }
+  }, [visible]);
 
   const handleSubjectSelect = (subject) => {
     setFilters(prev => ({
@@ -105,15 +107,31 @@ const TutorFilterModal = ({ isVisible, onClose, onApplyFilters, subjects, initia
     <Modal
       animationType="slide"
       transparent={true}
-      visible={isVisible}
+      visible={visible}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
+      <TouchableOpacity 
+        style={styles.modalOverlay} 
+        activeOpacity={1} 
+        onPress={onClose}
+      >
+        <TouchableOpacity 
+          style={styles.modalContent} 
+          activeOpacity={1} 
+          onPress={(e) => e.stopPropagation()}
+        >
+          <TouchableOpacity 
+            style={styles.closeBarButton} 
+            onPress={onClose}
+            accessibilityLabel="Close filter panel"
+          >
+            <View style={styles.closeBar}></View>
+          </TouchableOpacity>
+          
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Filter Tutors</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <MaterialIcons name="close" size={24} color="#666" />
+            <TouchableOpacity onPress={onClose} style={styles.closeButton} accessibilityLabel="Close filter panel">
+              <MaterialIcons name="close" size={24} color="#333" />
             </TouchableOpacity>
           </View>
 
@@ -243,14 +261,20 @@ const TutorFilterModal = ({ isVisible, onClose, onApplyFilters, subjects, initia
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
+              style={styles.exitButton}
+              onPress={onClose}
+            >
+              <Text style={styles.exitButtonText}>Exit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={styles.applyButton}
               onPress={handleApplyFilters}
             >
               <Text style={styles.applyButtonText}>Apply Filters</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 };
@@ -280,8 +304,23 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
+  closeBarButton: {
+    width: '100%',
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 10,
+  },
+  closeBar: {
+    width: 40,
+    height: 5,
+    backgroundColor: '#DDDDDD',
+    borderRadius: 2.5,
+  },
   closeButton: {
-    padding: 4,
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: '#f2f2f2',
   },
   filtersContainer: {
     flex: 1,
@@ -404,6 +443,20 @@ const styles = StyleSheet.create({
   clearButtonText: {
     fontSize: 16,
     color: '#666',
+  },
+  exitButton: {
+    flex: 1,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF5252',
+    borderRadius: 8,
+    marginHorizontal: 8,
+  },
+  exitButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
   },
   disabledButtonText: {
     color: '#ccc',
