@@ -29,7 +29,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 const ChatDetailsScreen = ({ route, navigation }) => {
-  const { chatId, sessionDetails, otherUserName, otherUserId } = route.params;
+  const { chatId, sessionDetails = {}, otherUserName, otherUserId } = route.params || {};
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -143,8 +143,15 @@ const ChatDetailsScreen = ({ route, navigation }) => {
   
   // Handle deleting the chat
   const handleDeleteChat = async () => {
-    // If student and chat not ended, show explanation
-    if (!isTutor && !isChatEnded) {
+    console.log('Handling delete chat. isTutor:', isTutor, 'isChatEnded:', isChatEnded);
+    
+    // Double-check if the current user is a tutor based on chatData
+    const currentUserId = auth.currentUser?.uid;
+    const isTutorBasedOnChatData = currentUserId === chatData?.participants?.tutorId;
+    console.log('Is tutor based on chatData:', isTutorBasedOnChatData);
+    
+    // Allow deletion if user is either recognized as tutor or is the tutor in chatData
+    if (!isTutor && !isTutorBasedOnChatData && !isChatEnded) {
       Alert.alert(
         "Cannot Delete Chat",
         "Students can only delete chats after they've been ended by the tutor.",
@@ -212,6 +219,8 @@ const ChatDetailsScreen = ({ route, navigation }) => {
   
   // Get session status color
   const getStatusColor = (status) => {
+    if (!status) return theme.colors.secondary;
+    
     switch (status) {
       case 'confirmed':
         return theme.colors.primary;
@@ -227,7 +236,19 @@ const ChatDetailsScreen = ({ route, navigation }) => {
   // Check if user is tutor and if chat is ended with more explicit declarations
   let isTutor = false;
   try {
-    isTutor = auth.currentUser?.uid === sessionDetails?.tutorId;
+    // Log the values to debug
+    console.log('Current user ID:', auth.currentUser?.uid);
+    console.log('Tutor ID in sessionDetails:', sessionDetails?.tutorId);
+    console.log('Session details:', sessionDetails);
+    
+    // Fix the tutor detection logic
+    if (auth.currentUser?.uid && sessionDetails?.tutorId) {
+      isTutor = auth.currentUser.uid === sessionDetails.tutorId;
+    } else if (chatData?.participants?.tutorId) {
+      // Fallback to chatData if sessionDetails doesn't have tutorId
+      isTutor = auth.currentUser.uid === chatData.participants.tutorId;
+    }
+    console.log('Is tutor?', isTutor);
   } catch (error) {
     console.error('Error determining tutor status:', error);
   }
@@ -315,6 +336,7 @@ const ChatDetailsScreen = ({ route, navigation }) => {
       fontSize: 14,
       color: '#666666',
       marginLeft: 8,
+      flex: 1,
     },
     chatEndedBanner: {
       flexDirection: 'row',
@@ -326,6 +348,12 @@ const ChatDetailsScreen = ({ route, navigation }) => {
     chatEndedText: {
       color: '#FFFFFF',
       fontWeight: 'bold',
+      marginLeft: 8,
+    },
+    chatEndedSubtext: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      opacity: 0.9,
       marginLeft: 8,
     },
     loadingContainer: {
@@ -457,12 +485,57 @@ const ChatDetailsScreen = ({ route, navigation }) => {
           <View style={styles.sessionBadge}>
             <Text style={[
               styles.sessionStatus,
-              { color: getStatusColor(sessionDetails.status) }
+              { color: getStatusColor(sessionDetails?.status) }
             ]}>
-              {sessionDetails.status.charAt(0).toUpperCase() + sessionDetails.status.slice(1)}
+              {sessionDetails?.status 
+                ? sessionDetails.status.charAt(0).toUpperCase() + sessionDetails.status.slice(1) 
+                : 'Unknown'}
             </Text>
           </View>
         </View>
+        
+        {/* Directly check if user is the tutor in chat data */}
+        {auth.currentUser?.uid === chatData?.participants?.tutorId && (
+          <>
+            {!isChatEnded && (
+              <Appbar.Action 
+                icon="stop-circle" 
+                color="#fff" 
+                onPress={handleEndChat} 
+              />
+            )}
+            <Appbar.Action 
+              icon="delete" 
+              color="#fff" 
+              onPress={handleDeleteChat} 
+            />
+          </>
+        )}
+        
+        {/* For students */}
+        {auth.currentUser?.uid === chatData?.participants?.studentId && (
+          <>
+            {isChatEnded ? (
+              <Appbar.Action 
+                icon="delete" 
+                color="#fff" 
+                onPress={handleDeleteChat} 
+              />
+            ) : (
+              <View style={{opacity: 0.5}}>
+                <Appbar.Action 
+                  icon="delete" 
+                  color="#fff" 
+                  onPress={() => Alert.alert(
+                    "Cannot Delete Chat",
+                    "Students can only delete chats after they've been ended by the tutor."
+                  )} 
+                />
+              </View>
+            )}
+          </>
+        )}
+        
         <Menu
           visible={menuVisible}
           onDismiss={closeMenu}
@@ -470,51 +543,63 @@ const ChatDetailsScreen = ({ route, navigation }) => {
             <Appbar.Action color="#fff" icon="dots-vertical" onPress={openMenu} />
           }
         >
-          {isTutor && !isChatEnded && (
-            <Menu.Item 
-              title="End Chat Session" 
-              leadingIcon="stop-circle"
-              onPress={() => {
-                closeMenu();
-                handleEndChat();
-              }} 
-            />
-          )}
-          {(isTutor || isChatEnded) && (
-            <Menu.Item 
-              title="Delete Chat" 
-              leadingIcon="delete"
-              onPress={() => {
-                closeMenu();
-                handleDeleteChat();
-              }} 
-            />
-          )}
-          {!isTutor && !isChatEnded && (
-            <Menu.Item 
-              title="Delete Chat (Unavailable)" 
-              leadingIcon="delete"
-              disabled={true}
-              titleStyle={{ color: '#999999' }}
-              onPress={() => {}} 
-            />
-          )}
+          <Menu.Item 
+            title="View Session Details" 
+            leadingIcon="event"
+            onPress={() => {
+              closeMenu();
+              // Navigation to SessionDetails
+              const sessionId = sessionDetails?.id;
+              if (sessionId) {
+                // Check if we're in student or tutor navigation
+                const isTutorApp = !!sessionDetails?.tutorId && sessionDetails.tutorId === auth.currentUser?.uid;
+                
+                if (isTutorApp) {
+                  navigation.navigate('Schedule', {
+                    screen: 'SessionDetails',
+                    params: { sessionId }
+                  });
+                } else {
+                  navigation.navigate('SessionsTab', {
+                    screen: 'SessionDetails',
+                    params: { sessionId }
+                  });
+                }
+              } else {
+                Alert.alert("Session Info", "Session details are not available or the session doesn't exist anymore.");
+              }
+            }} 
+          />
         </Menu>
       </Appbar.Header>
       
       <View style={styles.sessionInfoBar}>
         <MaterialIcons name="event" size={16} color={theme?.colors?.primary || '#9C27B0'} />
         <Text style={styles.sessionInfoText}>
-          {sessionDetails.subject} · {sessionDetails.date} · {sessionDetails.startTime}-{sessionDetails.endTime}
+          {sessionDetails?.subject || 'N/A'} · {sessionDetails?.date || 'N/A'} · {sessionDetails?.startTime || 'N/A'}-{sessionDetails?.endTime || 'N/A'}
         </Text>
       </View>
       
       {isChatEnded && (
         <View style={styles.chatEndedBanner}>
           <MaterialIcons name="info" size={20} color="#FFFFFF" />
-          <Text style={styles.chatEndedText}>
-            This chat has been ended by the tutor
-          </Text>
+          <View style={{flex: 1}}>
+            <Text style={styles.chatEndedText}>
+              This chat has been ended by the tutor
+            </Text>
+            <Text style={styles.chatEndedSubtext}>
+              {(() => {
+                const currentUserId = auth.currentUser?.uid;
+                const isTutorFromSessionDetails = currentUserId === sessionDetails?.tutorId;
+                const isTutorFromChatData = currentUserId === chatData?.participants?.tutorId;
+                const isCurrentUserTutor = isTutorFromSessionDetails || isTutorFromChatData;
+                
+                return isCurrentUserTutor
+                  ? "You can still view and delete this chat" 
+                  : "You can now delete this chat or continue to view it";
+              })()}
+            </Text>
+          </View>
         </View>
       )}
       

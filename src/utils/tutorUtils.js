@@ -775,22 +775,21 @@ export const updateSessionStatus = async (sessionId, newStatus) => {
     
     // If the session is accepted, create a chat for the student and tutor
     if (newStatus === 'confirmed') {
-      // Get student details
+      // Get student and tutor data for the chat
       const studentRef = doc(db, 'users', session.studentId);
       const studentDoc = await getDoc(studentRef);
-      const studentData = studentDoc.exists() ? studentDoc.data() : { displayName: 'Student' };
+      const studentData = studentDoc.exists() ? studentDoc.data() : { displayName: `User ${session.studentId.substring(0, 5)}` };
       
-      // Get tutor details
       const tutorRef = doc(db, 'users', session.tutorId);
       const tutorDoc = await getDoc(tutorRef);
-      const tutorData = tutorDoc.exists() ? tutorDoc.data() : { displayName: 'Tutor' };
+      const tutorData = tutorDoc.exists() ? tutorDoc.data() : { displayName: `User ${session.tutorId.substring(0, 5)}` };
       
       // Create a chat for the session
       await createChat(sessionId, {
         studentId: session.studentId,
-        studentName: studentData.displayName || 'Student',
+        studentName: studentData.fullName || studentData.displayName || `User ${session.studentId.substring(0, 5)}`,
         tutorId: session.tutorId,
-        tutorName: tutorData.displayName || 'Tutor',
+        tutorName: tutorData.fullName || tutorData.displayName || `User ${session.tutorId.substring(0, 5)}`,
         subject: session.subject,
         date: session.date,
         startTime: session.startTime,
@@ -812,11 +811,18 @@ export const updateSessionStatus = async (sessionId, newStatus) => {
 // Reschedule a session
 export const rescheduleSession = async (sessionId, newSchedule) => {
   try {
-    const { date, startTime, endTime } = newSchedule;
+    let { date, startTime, endTime } = newSchedule;
     
     // Validate inputs
     if (!date || !startTime || !endTime) {
       return { success: false, error: "Missing required schedule information." };
+    }
+    
+    // Ensure date is in YYYY-MM-DD format without any timezone effects
+    if (typeof date !== 'string') {
+      // If date is a Date object or timestamp, convert to YYYY-MM-DD
+      const d = new Date(date);
+      date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
     
     const sessionRef = doc(db, 'sessions', sessionId);
@@ -831,7 +837,12 @@ export const rescheduleSession = async (sessionId, newSchedule) => {
     // Calculate duration in hours
     const startHour = parseInt(startTime.split(':')[0]);
     const endHour = parseInt(endTime.split(':')[0]);
-    const duration = endHour - startHour;
+    let duration = endHour - startHour;
+    
+    // Handle cases where end time is on the next day (e.g., 11PM to 12AM)
+    if (duration <= 0) {
+      duration += 24; // Assume session continues to next day
+    }
     
     // Calculate total amount based on new duration
     const totalAmount = duration * session.hourlyRate;

@@ -64,15 +64,30 @@ const MessagesScreen = ({ navigation }) => {
   
   // Navigate to chat details
   const handleChatPress = (chat) => {
+    const sessionDetails = chat.sessionDetails || {};
+    // Ensure sessionId is available for navigation
+    if (sessionDetails && !sessionDetails.id && chat.sessionId) {
+      sessionDetails.id = chat.sessionId;
+    }
+    
+    const isCurrentUserStudent = auth.currentUser.uid === chat.participants.studentId;
+    const otherUserName = isCurrentUserStudent ? chat.participants.tutorName : chat.participants.studentName;
+    const otherUserId = isCurrentUserStudent ? chat.participants.tutorId : chat.participants.studentId;
+    
+    // Make sure we have a valid name, not just "Student" or "Tutor"
+    let displayName = otherUserName;
+    if (!displayName || displayName === "Student" || displayName === "Tutor") {
+      // Use first name + last initial or user ID as fallback
+      displayName = chat.participants?.[isCurrentUserStudent ? 'tutorDisplayName' : 'studentDisplayName'] || 
+                  (otherUserName || '').split(' ')[0] || 
+                  `User ${otherUserId.substring(0, 5)}`;
+    }
+    
     navigation.navigate('ChatDetails', {
       chatId: chat.id,
-      sessionDetails: chat.sessionDetails,
-      otherUserName: auth.currentUser.uid === chat.participants.studentId 
-        ? chat.participants.tutorName 
-        : chat.participants.studentName,
-      otherUserId: auth.currentUser.uid === chat.participants.studentId 
-        ? chat.participants.tutorId 
-        : chat.participants.studentId
+      sessionDetails: sessionDetails,
+      otherUserName: displayName,
+      otherUserId: otherUserId
     });
   };
   
@@ -86,8 +101,18 @@ const MessagesScreen = ({ navigation }) => {
   const renderChatItem = ({ item }) => {
     const isCurrentUserStudent = auth.currentUser.uid === item.participants.studentId;
     const otherUserName = isCurrentUserStudent ? item.participants.tutorName : item.participants.studentName;
+    const otherUserId = isCurrentUserStudent ? item.participants.tutorId : item.participants.studentId;
     const hasUnreadMessages = false; // This will be implemented when we track unread messages
     const isChatEnded = item.ended || false;
+    
+    // Make sure we have a valid name, not just "Student" or "Tutor"
+    let displayName = otherUserName;
+    if (!displayName || displayName === "Student" || displayName === "Tutor") {
+      // Use first name + last initial or user ID as fallback
+      displayName = item.participants?.[isCurrentUserStudent ? 'tutorDisplayName' : 'studentDisplayName'] || 
+                   (otherUserName || '').split(' ')[0] || 
+                   `User ${otherUserId.substring(0, 5)}`;
+    }
     
     return (
       <TouchableOpacity onPress={() => handleChatPress(item)}>
@@ -95,12 +120,19 @@ const MessagesScreen = ({ navigation }) => {
           <View style={styles.chatContent}>
             <Avatar.Text 
               size={50} 
-              label={otherUserName.charAt(0).toUpperCase()} 
+              label={displayName.charAt(0).toUpperCase()} 
               backgroundColor={theme.colors.primary} 
             />
             <View style={styles.chatDetails}>
               <View style={styles.chatHeader}>
-                <Text style={styles.userName}>{otherUserName}</Text>
+                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <Text style={styles.userName}>{displayName}</Text>
+                  {isChatEnded && (
+                    <View style={styles.chatEndedBadge}>
+                      <Text style={styles.chatEndedBadgeText}>Ended</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={styles.timeAgo}>{formatTime(item.lastMessageTime)}</Text>
               </View>
               <View style={styles.messagePreview}>
@@ -111,7 +143,6 @@ const MessagesScreen = ({ navigation }) => {
                   ]} 
                   numberOfLines={1}
                 >
-                  {isChatEnded && <Text style={styles.chatEndedTag}>[Ended] </Text>}
                   {item.lastMessage || 'No messages yet'}
                 </Text>
                 {hasUnreadMessages && (
@@ -121,9 +152,13 @@ const MessagesScreen = ({ navigation }) => {
               <View style={styles.sessionInfo}>
                 <MaterialIcons name="event" size={14} color={theme.colors.primary} />
                 <Text style={styles.sessionDetails}>
-                  {item.sessionDetails.subject} · {item.sessionDetails.date} · {item.sessionDetails.startTime}
+                  {item.sessionDetails?.subject || 'N/A'} · {item.sessionDetails?.date || 'N/A'} · {item.sessionDetails?.startTime || 'N/A'}
                 </Text>
               </View>
+              {/* Show can delete info for students */}
+              {isChatEnded && isCurrentUserStudent && (
+                <Text style={styles.deleteInfo}>Tap to view or delete this chat</Text>
+              )}
             </View>
           </View>
         </Card>
@@ -257,9 +292,22 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  chatEndedTag: {
-    color: '#FF9800',
+  chatEndedBadge: {
+    backgroundColor: '#FF9800',
+    borderRadius: 12,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  chatEndedBadgeText: {
+    fontSize: 12,
     fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  deleteInfo: {
+    fontSize: 12,
+    color: '#888888',
+    marginTop: 4,
   },
 });
 

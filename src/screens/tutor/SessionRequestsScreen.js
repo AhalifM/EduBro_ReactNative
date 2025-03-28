@@ -118,9 +118,15 @@ const SessionRequestsScreen = ({ navigation }) => {
 
   const handleReschedulePress = (session) => {
     setSelectedSession(session);
-    setNewDate(new Date());
-    setNewStartTime('10:00');
-    setNewEndTime('11:00');
+    
+    // Parse the session's original date and set as initial date
+    const sessionDate = new Date(session.date);
+    setNewDate(sessionDate);
+    
+    // Use the session's existing times if available
+    setNewStartTime(session.startTime || '10:00');
+    setNewEndTime(session.endTime || '11:00');
+    
     setIsRescheduleModalVisible(true);
   };
 
@@ -174,15 +180,22 @@ const SessionRequestsScreen = ({ navigation }) => {
     }
     
     if (selectedTime) {
-      const hours = selectedTime.getHours().toString().padStart(2, '0');
-      const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
+      // Create a new Date object with the current newDate value to preserve the date
+      const timeDate = new Date(newDate);
+      
+      // Set hours and minutes from the selected time
+      timeDate.setHours(selectedTime.getHours());
+      timeDate.setMinutes(selectedTime.getMinutes());
+      
+      const hours = timeDate.getHours().toString().padStart(2, '0');
+      const minutes = timeDate.getMinutes().toString().padStart(2, '0');
       const timeString = `${hours}:${minutes}`;
       
       if (type === 'start') {
         setNewStartTime(timeString);
         
         // Automatically set end time 1 hour later
-        const endTime = new Date(selectedTime);
+        const endTime = new Date(timeDate);
         endTime.setHours(endTime.getHours() + 1);
         const endHours = endTime.getHours().toString().padStart(2, '0');
         const endMinutes = endTime.getMinutes().toString().padStart(2, '0');
@@ -200,6 +213,7 @@ const SessionRequestsScreen = ({ navigation }) => {
     const [startHour, startMinute] = newStartTime.split(':').map(Number);
     const [endHour, endMinute] = newEndTime.split(':').map(Number);
     
+    // Check if times are valid for the same day (handles most common cases)
     if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
       Alert.alert('Invalid Time', 'End time must be after start time');
       return;
@@ -208,7 +222,11 @@ const SessionRequestsScreen = ({ navigation }) => {
     try {
       setIsSubmittingReschedule(true);
       
-      const dateString = newDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+      // Format the date as YYYY-MM-DD to avoid timezone issues
+      const year = newDate.getFullYear();
+      const month = String(newDate.getMonth() + 1).padStart(2, '0');
+      const day = String(newDate.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
       
       const result = await rescheduleSession(selectedSession.id, {
         date: dateString,
@@ -390,7 +408,7 @@ const SessionRequestsScreen = ({ navigation }) => {
               <DateTimePicker
                 value={(() => {
                   const [hours, minutes] = newStartTime.split(':');
-                  const date = new Date();
+                  const date = new Date(newDate); // Use the newDate instead of creating a new Date()
                   date.setHours(parseInt(hours, 10));
                   date.setMinutes(parseInt(minutes, 10));
                   return date;
@@ -405,7 +423,7 @@ const SessionRequestsScreen = ({ navigation }) => {
               <DateTimePicker
                 value={(() => {
                   const [hours, minutes] = newEndTime.split(':');
-                  const date = new Date();
+                  const date = new Date(newDate); // Use the newDate instead of creating a new Date()
                   date.setHours(parseInt(hours, 10));
                   date.setMinutes(parseInt(minutes, 10));
                   return date;

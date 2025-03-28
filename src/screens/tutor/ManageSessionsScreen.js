@@ -32,7 +32,7 @@ const ManageSessionsScreen = ({ navigation }) => {
       const result = await getUserSessions(user.uid, 'tutor');
       
       if (result.success) {
-        // Sort sessions by date, most recent first
+        // Sort sessions by date, most recent first (descending order)
         const sortedSessions = result.sessions.sort((a, b) => {
           // Ensure session data exists before sorting
           if (!a || !b || !a.date || !b.date || !a.startTime || !b.startTime) {
@@ -40,7 +40,7 @@ const ManageSessionsScreen = ({ navigation }) => {
           }
           const dateA = new Date(`${a.date}T${a.startTime}`);
           const dateB = new Date(`${b.date}T${b.startTime}`);
-          return dateA - dateB;
+          return dateB - dateA; // Changed order to sort from newest to oldest
         });
         
         setSessions(sortedSessions);

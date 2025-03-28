@@ -29,7 +29,7 @@ const MySessionsScreen = ({ navigation }) => {
   const { user } = useAuth();
   const [sessions, setSessions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState('upcoming'); // upcoming, past, all
+  const [filter, setFilter] = useState('upcoming'); // upcoming, past, cancelled, rescheduled, pending, all
   const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
   const [rating, setRating] = useState(0);
@@ -137,9 +137,22 @@ const MySessionsScreen = ({ navigation }) => {
         const sessionDate = new Date(session.date);
         
         if (filter === 'upcoming') {
-          return sessionDate >= today && (session.status === 'confirmed' || session.status === 'pending');
+          // Include sessions with dates in the future or today with a confirmed status only
+          return (sessionDate >= today && 
+                 session.status === 'confirmed' && 
+                 session.status !== 'rescheduled');
         } else if (filter === 'past') {
-          return sessionDate < today || session.status === 'cancelled';
+          // Include sessions with dates in the past or those that are completed
+          return (sessionDate < today && session.status !== 'cancelled');
+        } else if (filter === 'cancelled') {
+          // Only show cancelled sessions
+          return session.status === 'cancelled';
+        } else if (filter === 'rescheduled') {
+          // Only show rescheduled sessions
+          return session.status === 'rescheduled';
+        } else if (filter === 'pending') {
+          // Only show pending sessions
+          return session.status === 'pending';
         } else {
           return true; // all
         }
@@ -179,51 +192,87 @@ const MySessionsScreen = ({ navigation }) => {
       return;
     }
 
-    // Check if session is within cancellation window (5 hours before)
-    const sessionDateTime = new Date(`${session.date}T${session.startTime}`);
-    const now = new Date();
-    const hoursUntilSession = (sessionDateTime - now) / (1000 * 60 * 60);
-    
-    if (hoursUntilSession < 5) {
+    try {
+      // Parse session date and time properly
+      const sessionDate = new Date(session.date);
+      const [hours, minutes] = session.startTime.split(':').map(Number);
+      
+      // Create a proper date-time object for the session start
+      const sessionDateTime = new Date(sessionDate);
+      sessionDateTime.setHours(hours, minutes, 0, 0);
+      
+      // Get current time
+      const now = new Date();
+      
+      // Calculate time difference in milliseconds
+      const timeDiffMs = sessionDateTime.getTime() - now.getTime();
+      
+      // Convert to hours (with decimal precision)
+      const hoursUntilSession = timeDiffMs / (1000 * 60 * 60);
+      
+      console.log(`Session time: ${sessionDateTime.toLocaleString()}`);
+      console.log(`Current time: ${now.toLocaleString()}`);
+      console.log(`Hours until session: ${hoursUntilSession.toFixed(2)}`);
+      
+      if (hoursUntilSession < 5) {
+        // Format the minimum cancel time to show the user
+        const minCancelTime = new Date(sessionDateTime.getTime() - (5 * 60 * 60 * 1000));
+        const formattedMinTime = minCancelTime.toLocaleString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: 'numeric'
+        });
+        
+        Alert.alert(
+          'Cannot Cancel Session',
+          `Sessions must be cancelled at least 5 hours before the start time.\n\nThis session starts at ${sessionDateTime.toLocaleString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric'
+          })}.\n\nThe cancellation deadline was ${formattedMinTime}.`
+        );
+        return;
+      }
+      
+      // If we get here, cancellation is allowed
       Alert.alert(
-        'Cannot Cancel Session',
-        'Sessions can only be cancelled at least 5 hours before the start time.'
-      );
-      return;
-    }
-    
-    Alert.alert(
-      'Cancel Session',
-      'Are you sure you want to cancel this session?',
-      [
-        {
-          text: 'No',
-          style: 'cancel',
-        },
-        {
-          text: 'Yes',
-          onPress: async () => {
-            try {
-              setIsLoading(true);
-              
-              const result = await cancelSession(session.id, user.uid);
-              
-              if (result.success) {
-                Alert.alert('Success', 'Session cancelled successfully');
-                fetchSessions();
-              } else {
-                Alert.alert('Error', result.error || 'Failed to cancel session');
-              }
-            } catch (error) {
-              console.error('Error cancelling session:', error);
-              Alert.alert('Error', 'An unexpected error occurred');
-            } finally {
-              setIsLoading(false);
-            }
+        'Cancel Session',
+        `Are you sure you want to cancel this session?\n\nSession: ${session.subject}\nDate: ${sessionDateTime.toLocaleDateString()}\nTime: ${session.startTime} - ${session.endTime}`,
+        [
+          {
+            text: 'No',
+            style: 'cancel',
           },
-        },
-      ]
-    );
+          {
+            text: 'Yes',
+            onPress: async () => {
+              try {
+                setIsLoading(true);
+                
+                const result = await cancelSession(session.id, user.uid);
+                
+                if (result.success) {
+                  Alert.alert('Success', 'Session cancelled successfully');
+                  fetchSessions();
+                } else {
+                  Alert.alert('Error', result.error || 'Failed to cancel session');
+                }
+              } catch (error) {
+                console.error('Error cancelling session:', error);
+                Alert.alert('Error', 'An unexpected error occurred');
+              } finally {
+                setIsLoading(false);
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error("Error processing cancellation request:", error);
+      Alert.alert("Error", "There was a problem processing your cancellation request. Please try again later.");
+    }
   };
   
   const handleCompleteSession = async (session) => {
@@ -439,6 +488,11 @@ const MySessionsScreen = ({ navigation }) => {
         icon = 'check-circle';
         label = 'Confirmed';
         break;
+      case 'completed':
+        color = '#4CAF50';
+        icon = 'check-circle';
+        label = 'Completed';
+        break;
       case 'pending':
         color = '#FF9800';
         icon = 'pending';
@@ -448,6 +502,11 @@ const MySessionsScreen = ({ navigation }) => {
         color = '#F44336';
         icon = 'cancel';
         label = 'Cancelled';
+        break;
+      case 'rescheduled':
+        color = '#2196F3';
+        icon = 'update';
+        label = 'Rescheduled';
         break;
       default:
         color = '#9E9E9E';
@@ -544,9 +603,21 @@ const MySessionsScreen = ({ navigation }) => {
     };
 
     const statusInfo = getStatusInfo(item.status);
+    const isSessionCancelled = item.status === 'cancelled';
+    const isSessionRescheduled = item.status === 'rescheduled';
+    const isSessionPending = item.status === 'pending';
 
     return (
-      <Card key={item.id} style={styles.sessionCard} mode="elevated">
+      <Card 
+        key={item.id} 
+        style={[
+          styles.sessionCard, 
+          isSessionCancelled && styles.cancelledSessionCard,
+          isSessionRescheduled && styles.rescheduledSessionCard,
+          isSessionPending && styles.pendingSessionCard
+        ]} 
+        mode="elevated"
+      >
         <Card.Content>
           <View style={styles.cardHeader}>
             <View>
@@ -554,6 +625,12 @@ const MySessionsScreen = ({ navigation }) => {
               <Paragraph style={styles.dateText}>
                 {formattedDate} • {item.startTime} - {item.endTime}
               </Paragraph>
+              {isSessionRescheduled && item.originalTime && (
+                <Paragraph style={styles.rescheduledText}>
+                  <MaterialIcons name="refresh" size={14} color="#2196F3" />
+                  <Text> Rescheduled: {item.originalTime} → {item.startTime}</Text>
+                </Paragraph>
+              )}
             </View>
             {renderStatusChip(item.status)}
           </View>
@@ -572,104 +649,113 @@ const MySessionsScreen = ({ navigation }) => {
             </Text>
           </View>
           
-          <View style={styles.divider} />
-          
-          <View style={styles.actionsContainer}>
-            <View style={styles.primaryActions}>
-              {item.status === 'confirmed' && (
-                <Button 
-                  mode="contained"
-                  buttonColor="#9C27B0"
-                  icon="chat"
-                  style={styles.actionButton}
-                  onPress={() => navigation.navigate('MessagesTab', {
-                    screen: 'ChatDetails',
-                    params: { recipientId: item.tutorId, recipientName: item.tutorName }
-                  })}
-                >
-                  Contact Tutor
-                </Button>
-              )}
+          {!isSessionCancelled && (
+            <>
+              <View style={styles.divider} />
               
-              {item.status === 'confirmed' && (
-                <Button 
-                  mode="contained"
-                  style={styles.detailsButton}
-                  textColor="#FFFFFF"
-                  onPress={() => navigation.navigate('TutorsTab', {
-                    screen: 'TutorDetail',
-                    params: { tutorId: item.tutorId }
-                  })}
-                >
-                  View Tutor
-                </Button>
-              )}
-            </View>
-            
-            <View style={styles.secondaryActions}>
-              {item.status !== 'cancelled' && !item.reviewSubmitted && (
-                <Button 
-                  mode="contained"
-                  icon="star"
-                  style={styles.reviewButton}
-                  buttonColor="#FF9800"
-                  textColor="#FFFFFF"
-                  onPress={() => handleLeaveReview(item)}
-                >
-                  Leave Review
-                </Button>
-              )}
-              
-              {item.status === 'confirmed' && (
-                <Button 
-                  mode="contained"
-                  icon="check-circle"
-                  style={styles.completeButton}
-                  buttonColor="#4CAF50"
-                  textColor="#FFFFFF"
-                  onPress={() => handleCompleteSession(item)}
-                >
-                  Complete
-                </Button>
-              )}
-              
-              {item.status === 'upcoming' && (
-                <Button 
-                  mode="outlined"
-                  icon="close-circle"
-                  style={styles.cancelButton}
-                  textColor="#F44336"
-                  onPress={() => handleCancelSession(item)}
-                >
-                  Cancel
-                </Button>
-              )}
-              
-              {item.status === 'rescheduled' && (
-                <View style={styles.rescheduleButtonsContainer}>
+              <View style={styles.actionsContainer}>
+                {item.status === 'confirmed' && filter === 'upcoming' && (
                   <Button 
                     mode="outlined"
-                    icon="check"
-                    style={styles.acceptButton}
-                    textColor="#9C27B0"
-                    onPress={() => handleAcceptReschedule(item)}
-                  >
-                    Accept
-                  </Button>
-                  
-                  <Button 
-                    mode="outlined"
-                    icon="close"
-                    style={styles.rejectButton}
+                    icon="close-circle"
+                    style={[styles.cancelButton, { flex: 1 }]}
                     textColor="#F44336"
-                    onPress={() => handleDeclineReschedule(item)}
+                    onPress={() => handleCancelSession(item)}
                   >
-                    Decline
+                    Cancel
                   </Button>
-                </View>
-              )}
-            </View>
-          </View>
+                )}
+                
+                {item.status === 'confirmed' && filter === 'past' && (
+                  <>
+                    {!item.reviewSubmitted && (
+                      <Button 
+                        mode="contained"
+                        icon="star"
+                        style={[styles.actionButton, styles.reviewButton]}
+                        labelStyle={styles.buttonLabel}
+                        buttonColor="#FF9800"
+                        onPress={() => handleLeaveReview(item)}
+                      >
+                        Review
+                      </Button>
+                    )}
+                    
+                    <Button 
+                      mode="contained"
+                      icon="check-circle"
+                      style={[styles.actionButton, styles.completeButton]}
+                      labelStyle={styles.buttonLabel}
+                      buttonColor="#4CAF50"
+                      onPress={() => handleCompleteSession(item)}
+                    >
+                      Complete
+                    </Button>
+                  </>
+                )}
+                
+                {item.status !== 'confirmed' && item.status !== 'cancelled' && !item.reviewSubmitted && filter === 'past' && (
+                  <Button 
+                    mode="contained"
+                    icon="star"
+                    style={styles.reviewButton}
+                    buttonColor="#FF9800"
+                    textColor="#FFFFFF"
+                    onPress={() => handleLeaveReview(item)}
+                  >
+                    Leave Review
+                  </Button>
+                )}
+                
+                {item.status === 'rescheduled' && (
+                  <View style={styles.rescheduleButtonsContainer}>
+                    <Button 
+                      mode="contained"
+                      icon="check"
+                      style={styles.acceptButton}
+                      buttonColor="#4CAF50"
+                      textColor="#FFFFFF"
+                      onPress={() => handleAcceptReschedule(item)}
+                    >
+                      Accept
+                    </Button>
+                    
+                    <Button 
+                      mode="contained"
+                      icon="close"
+                      style={styles.rejectButton}
+                      buttonColor="#F44336"
+                      textColor="#FFFFFF"
+                      onPress={() => handleDeclineReschedule(item)}
+                    >
+                      Decline
+                    </Button>
+                  </View>
+                )}
+                
+                {item.status === 'pending' && (
+                  <View style={styles.pendingInfoContainer}>
+                    <View style={styles.pendingStatusRow}>
+                      <MaterialIcons name="hourglass-empty" size={20} color="#FF9800" />
+                      <Text style={styles.pendingText}>
+                        Waiting for tutor approval
+                      </Text>
+                    </View>
+                    
+                    <Button 
+                      mode="outlined"
+                      icon="close-circle"
+                      style={[styles.cancelButton, { marginTop: 8, width: '100%' }]}
+                      textColor="#F44336"
+                      onPress={() => handleCancelSession(item)}
+                    >
+                      Cancel Request
+                    </Button>
+                  </View>
+                )}
+              </View>
+            </>
+          )}
         </Card.Content>
       </Card>
     );
@@ -699,7 +785,7 @@ const MySessionsScreen = ({ navigation }) => {
             Your completed sessions will appear here
           </Text>
         </>
-      ) : (
+      ) : filter === 'cancelled' ? (
         <>
           <MaterialIcons name="cancel" size={64} color="#9E9E9E" style={styles.emptyIcon} />
           <Text style={styles.emptyText}>No cancelled sessions</Text>
@@ -707,9 +793,43 @@ const MySessionsScreen = ({ navigation }) => {
             Sessions you cancel will appear here
           </Text>
         </>
+      ) : filter === 'rescheduled' ? (
+        <>
+          <MaterialIcons name="update" size={64} color="#9E9E9E" style={styles.emptyIcon} />
+          <Text style={styles.emptyText}>No rescheduled sessions</Text>
+          <Text style={styles.emptySubText}>
+            When a tutor reschedules a session, it will appear here for your approval
+          </Text>
+        </>
+      ) : filter === 'pending' ? (
+        <>
+          <MaterialIcons name="hourglass-empty" size={64} color="#9E9E9E" style={styles.emptyIcon} />
+          <Text style={styles.emptyText}>No pending sessions</Text>
+          <Text style={styles.emptySubText}>
+            Sessions waiting for approval will appear here
+          </Text>
+        </>
+      ) : (
+        <>
+          <MaterialIcons name="school" size={64} color="#9E9E9E" style={styles.emptyIcon} />
+          <Text style={styles.emptyText}>No sessions found</Text>
+          <Text style={styles.emptySubText}>
+            When you book sessions, they will appear here
+          </Text>
+        </>
       )}
     </View>
   );
+  
+  const hasRescheduledSessions = useMemo(() => {
+    if (!sessions || !Array.isArray(sessions)) return false;
+    return sessions.some(session => session.status === 'rescheduled');
+  }, [sessions]);
+
+  const hasPendingSessions = useMemo(() => {
+    if (!sessions || !Array.isArray(sessions)) return false;
+    return sessions.some(session => session.status === 'pending');
+  }, [sessions]);
   
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom']}>
@@ -732,33 +852,103 @@ const MySessionsScreen = ({ navigation }) => {
       
       <View style={styles.filterContainer}>
         <ScrollView 
-          horizontal 
+          horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterScrollContent}
+          contentContainerStyle={styles.filterTabsContainer}
+          decelerationRate="fast"
+          snapToAlignment="center"
         >
           <Chip
             selected={filter === 'upcoming'}
             onPress={() => handleTabChange('upcoming')}
-            style={styles.filterChip}
-            selectedColor="#9C27B0"
+            style={[
+              styles.filterChip, 
+              filter === 'upcoming' ? styles.selectedChip : styles.unselectedChip
+            ]}
+            selectedColor="#FFFFFF"
+            textStyle={[
+              styles.chipText,
+              filter === 'upcoming' ? styles.selectedChipText : styles.unselectedChipText
+            ]}
           >
             Upcoming
           </Chip>
           <Chip
+            selected={filter === 'pending'}
+            onPress={() => handleTabChange('pending')}
+            style={[
+              styles.filterChip, 
+              filter === 'pending' ? styles.selectedChip : styles.unselectedChip
+            ]}
+            selectedColor="#FFFFFF"
+            textStyle={[
+              styles.chipText,
+              filter === 'pending' ? styles.selectedChipText : styles.unselectedChipText
+            ]}
+          >
+            Pending
+            {hasPendingSessions && filter !== 'pending' && <View style={styles.notificationDot} />}
+          </Chip>
+          <Chip
+            selected={filter === 'rescheduled'}
+            onPress={() => handleTabChange('rescheduled')}
+            style={[
+              styles.filterChip, 
+              filter === 'rescheduled' ? styles.selectedChip : styles.unselectedChip
+            ]}
+            selectedColor="#FFFFFF"
+            textStyle={[
+              styles.chipText,
+              filter === 'rescheduled' ? styles.selectedChipText : styles.unselectedChipText
+            ]}
+          >
+            Rescheduled
+            {hasRescheduledSessions && filter !== 'rescheduled' && <View style={styles.notificationDot} />}
+          </Chip>
+          <Chip
             selected={filter === 'past'}
             onPress={() => handleTabChange('past')}
-            style={styles.filterChip}
-            selectedColor="#9C27B0"
+            style={[
+              styles.filterChip, 
+              filter === 'past' ? styles.selectedChip : styles.unselectedChip
+            ]}
+            selectedColor="#FFFFFF"
+            textStyle={[
+              styles.chipText,
+              filter === 'past' ? styles.selectedChipText : styles.unselectedChipText
+            ]}
           >
             Past
           </Chip>
           <Chip
+            selected={filter === 'cancelled'}
+            onPress={() => handleTabChange('cancelled')}
+            style={[
+              styles.filterChip, 
+              filter === 'cancelled' ? styles.selectedChip : styles.unselectedChip
+            ]}
+            selectedColor="#FFFFFF"
+            textStyle={[
+              styles.chipText,
+              filter === 'cancelled' ? styles.selectedChipText : styles.unselectedChipText
+            ]}
+          >
+            Cancelled
+          </Chip>
+          <Chip
             selected={filter === 'all'}
             onPress={() => handleTabChange('all')}
-            style={styles.filterChip}
-            selectedColor="#9C27B0"
+            style={[
+              styles.filterChip, 
+              filter === 'all' ? styles.selectedChip : styles.unselectedChip
+            ]}
+            selectedColor="#FFFFFF"
+            textStyle={[
+              styles.chipText,
+              filter === 'all' ? styles.selectedChipText : styles.unselectedChipText
+            ]}
           >
-            All Sessions
+            All
           </Chip>
         </ScrollView>
       </View>
@@ -887,22 +1077,55 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   filterContainer: {
-    paddingVertical: 8,
+    paddingVertical: 12,
     backgroundColor: '#FFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
-    elevation: 2,
+    elevation: 3,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
-  filterScrollContent: {
-    paddingHorizontal: 16,
+  filterTabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
   },
   filterChip: {
-    marginRight: 8,
-    marginVertical: 4,
+    marginHorizontal: 4,
+    marginVertical: 2,
+    minWidth: 90,
+    borderRadius: 20,
+    elevation: 0,
+    height: 36,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+  },
+  selectedChip: {
+    backgroundColor: '#9C27B0',
+    elevation: 3,
+    shadowColor: '#9C27B0',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+  },
+  unselectedChip: {
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  chipText: {
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  selectedChipText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  unselectedChipText: {
+    color: '#4B5563',
   },
   sessionCard: {
     marginBottom: 20,
@@ -912,6 +1135,15 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
+  },
+  cancelledSessionCard: {
+    backgroundColor: '#F4433615',
+  },
+  rescheduledSessionCard: {
+    backgroundColor: '#2196F315',
+  },
+  pendingSessionCard: {
+    backgroundColor: '#FF980015',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -959,63 +1191,47 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     marginTop: 8,
-  },
-  primaryActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
-    marginBottom: 12,
-  },
-  secondaryActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
     flexWrap: 'wrap',
-  },
-  rescheduleButtonsContainer: {
-    flexDirection: 'row',
   },
   actionButton: {
     marginRight: 12,
     borderRadius: 8,
     marginBottom: 8,
+    minWidth: 120,
   },
-  detailsButton: {
-    marginRight: 12,
-    borderRadius: 8,
-    borderColor: '#9C27B0',
-    marginBottom: 8,
+  viewButton: {
+    backgroundColor: '#2196F3',
   },
   reviewButton: {
-    marginRight: 12,
-    borderRadius: 8,
-    elevation: 2,
-    marginBottom: 8,
+    backgroundColor: '#FF9800',
   },
   completeButton: {
-    marginRight: 12,
-    borderRadius: 8,
-    elevation: 2,
-    marginBottom: 8,
+    backgroundColor: '#4CAF50',
   },
   cancelButton: {
-    marginRight: 12,
     borderRadius: 8,
     borderColor: '#F44336',
     borderWidth: 1.5,
     marginBottom: 8,
+    minWidth: 120,
+  },
+  rescheduleButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginVertical: 4,
   },
   acceptButton: {
-    marginRight: 12,
+    flex: 1,
+    marginRight: 8,
     borderRadius: 8,
-    borderColor: '#9C27B0',
-    borderWidth: 1.5,
-    marginBottom: 8,
   },
   rejectButton: {
-    marginRight: 12,
+    flex: 1,
+    marginLeft: 8,
     borderRadius: 8,
-    borderColor: '#F44336',
-    borderWidth: 1.5,
-    marginBottom: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -1053,6 +1269,14 @@ const styles = StyleSheet.create({
   },
   findTutorButton: {
     borderRadius: 8,
+    backgroundColor: '#9C27B0',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   findTutorButtonText: {
     color: '#FFFFFF',
@@ -1133,6 +1357,37 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  rescheduledText: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  notificationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF0000',
+    position: 'absolute',
+    top: 4,
+    right: 4,
+  },
+  pendingInfoContainer: {
+    width: '100%',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  pendingStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  pendingText: {
+    fontSize: 16,
+    color: '#FF9800',
+    marginLeft: 8,
+    fontWeight: '500',
   },
 });
 

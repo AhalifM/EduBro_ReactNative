@@ -183,8 +183,8 @@ const TutorDetailScreen = ({ route, navigation }) => {
         endTime: endTime,
         subject: selectedSubject,
         hourlyRate: tutor.hourlyRate || 0,
-        tutorName: tutor.fullName || tutor.displayName || "Tutor",
-        studentName: user.fullName || user.displayName || "Student",
+        tutorName: tutor.fullName || tutor.displayName || `User ${tutor.uid.substring(0, 5)}`,
+        studentName: user.fullName || user.displayName || `User ${user.uid.substring(0, 5)}`,
         tutorPhoneNumber: tutor.phoneNumber || 'Not provided'
       });
       
@@ -346,14 +346,14 @@ const TutorDetailScreen = ({ route, navigation }) => {
           ) : (
             <View style={styles.profileImagePlaceholder}>
               <Text style={styles.profileImagePlaceholderText}>
-                {(tutor.fullName || tutor.displayName || "T").charAt(0).toUpperCase()}
+                {(tutor.fullName || tutor.displayName || `${tutor.uid?.substring(0, 1)}` || "?").charAt(0).toUpperCase()}
               </Text>
             </View>
           )}
         </View>
         
         <View style={styles.profileInfo}>
-          <Text style={styles.tutorName}>{tutor.fullName || tutor.displayName || "Tutor"}</Text>
+          <Text style={styles.tutorName}>{tutor.fullName || tutor.displayName || `User ${tutor.uid.substring(0, 5)}`}</Text>
           
           <View style={styles.ratingContainer}>
             <MaterialIcons name="star" size={16} color="#FFC107" />

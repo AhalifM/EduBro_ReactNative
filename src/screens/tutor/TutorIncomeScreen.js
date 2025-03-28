@@ -7,7 +7,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
-  Dimensions
+  Dimensions,
+  Platform
 } from 'react-native';
 import { useTheme, Card } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +16,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { getTutorIncome } from '../../utils/incomeUtils';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 
 const { width } = Dimensions.get('window');
 
@@ -81,7 +84,7 @@ const TutorIncomeScreen = () => {
           {/* Total Earnings Card */}
           <Card style={styles.statCard}>
             <View style={styles.statCardContent}>
-              <MaterialIcons name="account-balance-wallet" size={28} color="#4CAF50" style={styles.statIcon} />
+              <MaterialIcons name="account-balance-wallet" size={28} color="#9C27B0" style={styles.statIcon} />
               <Text style={styles.statTitle}>Total Earnings</Text>
               <Text style={styles.statValue}>{formatCurrency(totalIncome)}</Text>
             </View>
@@ -90,7 +93,7 @@ const TutorIncomeScreen = () => {
           {/* This Month Card */}
           <Card style={styles.statCard}>
             <View style={styles.statCardContent}>
-              <MaterialIcons name="calendar-today" size={28} color="#4285F4" style={styles.statIcon} />
+              <MaterialIcons name="calendar-today" size={28} color="#9C27B0" style={styles.statIcon} />
               <Text style={styles.statTitle}>This Month</Text>
               <Text style={styles.statValue}>{formatCurrency(currentMonthIncome)}</Text>
               <View style={styles.growthContainer}>
@@ -112,7 +115,7 @@ const TutorIncomeScreen = () => {
           {/* Upcoming Earnings Card */}
           <Card style={styles.statCard}>
             <View style={styles.statCardContent}>
-              <MaterialIcons name="date-range" size={28} color="#FF9800" style={styles.statIcon} />
+              <MaterialIcons name="date-range" size={28} color="#9C27B0" style={styles.statIcon} />
               <Text style={styles.statTitle}>Upcoming</Text>
               <Text style={styles.statValue}>{formatCurrency(upcomingIncome)}</Text>
             </View>
@@ -130,7 +133,7 @@ const TutorIncomeScreen = () => {
 
         <Card style={styles.recentEarningsCard}>
           <View style={styles.recentEarningsContent}>
-            <MaterialIcons name="timeline" size={28} color="#4CAF50" style={styles.recentEarningsIcon} />
+            <MaterialIcons name="timeline" size={28} color="#9C27B0" style={styles.recentEarningsIcon} />
             <Text style={styles.recentEarningsTitle}>Recent Earnings (30 days)</Text>
             <Text style={styles.recentEarningsAmount}>{formatCurrency(recentIncome)}</Text>
           </View>
@@ -140,13 +143,13 @@ const TutorIncomeScreen = () => {
           <Text style={styles.sectionTitle}>Income Summary</Text>
           <View style={styles.comparisonContainer}>
             <View style={styles.comparisonItem}>
-              <MaterialIcons name="today" size={28} color="#4285F4" style={styles.comparisonIcon} />
+              <MaterialIcons name="today" size={28} color="#9C27B0" style={styles.comparisonIcon} />
               <Text style={styles.comparisonLabel}>This Month</Text>
               <Text style={styles.comparisonValue}>{formatCurrency(currentMonthIncome)}</Text>
             </View>
             <View style={styles.comparisonDivider} />
             <View style={styles.comparisonItem}>
-              <MaterialIcons name="history" size={28} color="#FF9800" style={styles.comparisonIcon} />
+              <MaterialIcons name="history" size={28} color="#9C27B0" style={styles.comparisonIcon} />
               <Text style={styles.comparisonLabel}>Last Month</Text>
               <Text style={styles.comparisonValue}>{formatCurrency(previousMonthIncome)}</Text>
             </View>
@@ -172,11 +175,11 @@ const TutorIncomeScreen = () => {
                 </View>
                 <View style={styles.monthlyCardDetails}>
                   <View style={styles.monthlyDetailItem}>
-                    <MaterialIcons name="event" size={16} color="#666" />
+                    <MaterialIcons name="event" size={16} color="#9C27B0" />
                     <Text style={styles.monthlyDetailText}>{item.sessionCount} sessions</Text>
                   </View>
                   <View style={styles.monthlyDetailItem}>
-                    <MaterialIcons name="attach-money" size={16} color="#666" />
+                    <MaterialIcons name="attach-money" size={16} color="#9C27B0" />
                     <Text style={styles.monthlyDetailText}>
                       Avg: {formatCurrency(item.amount / item.sessionCount)}
                     </Text>
@@ -231,23 +234,36 @@ const TutorIncomeScreen = () => {
   };
 
   const getSubjectColor = (index) => {
-    const colors = ['#4CAF50', '#2196F3', '#9C27B0', '#FF9800', '#F44336'];
+    const colors = ['#9C27B0', '#E91E63', '#3F51B5', '#FF9800', '#4CAF50'];
     return colors[index % colors.length];
   };
 
   if (loading && !incomeData) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color="#9C27B0" />
         <Text style={styles.loadingText}>Loading income data...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Income Dashboard</Text>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+      <StatusBar style="light" />
+      
+      <View style={styles.headerContainer}>
+        <LinearGradient
+          colors={['#9C27B0', '#E91E63']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0.7 }}
+          style={styles.headerGradient}
+        >
+          <SafeAreaView edges={['top']} style={styles.safeAreaTop}>
+            <View style={styles.headerContent}>
+              <Text style={styles.headerTitle}>Income Dashboard</Text>
+            </View>
+          </SafeAreaView>
+        </LinearGradient>
       </View>
 
       <View style={styles.tabsContainer}>
@@ -279,7 +295,7 @@ const TutorIncomeScreen = () => {
 
       <ScrollView
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#9C27B0"]} />
         }
         style={styles.contentContainer}
       >
@@ -292,37 +308,58 @@ const TutorIncomeScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F8F9FA',
   },
-  header: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+  safeAreaTop: {
+    width: '100%',
+  },
+  headerContainer: {
+    overflow: 'hidden',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    elevation: 4,
+    shadowColor: '#9C27B0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  headerGradient: {
+    width: '100%',
+  },
+  headerContent: {
+    padding: 20,
+    paddingTop: Platform.OS === 'android' ? 16 : 0,
+    paddingBottom: 24,
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F8F9FA',
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#666',
+    color: '#4B5563',
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    marginBottom: 12,
+    borderBottomColor: '#F0F0F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   tab: {
     flex: 1,
@@ -331,22 +368,24 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     borderBottomWidth: 3,
-    borderBottomColor: '#4CAF50',
+    borderBottomColor: '#9C27B0',
   },
   tabText: {
     fontSize: 14,
     color: '#666',
   },
   activeTabText: {
-    color: '#4CAF50',
+    color: '#9C27B0',
     fontWeight: 'bold',
   },
   contentContainer: {
     flex: 1,
+    backgroundColor: '#F8F9FA',
   },
   tabContent: {
     marginBottom: 24,
     paddingHorizontal: 16,
+    paddingTop: 16,
   },
   statCardsContainer: {
     flexDirection: 'row',
@@ -358,9 +397,13 @@ const styles = StyleSheet.create({
     width: '48%',
     marginBottom: 16,
     elevation: 2,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: '#fff',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   statCardContent: {
     padding: 16,
@@ -396,9 +439,13 @@ const styles = StyleSheet.create({
   recentEarningsCard: {
     marginVertical: 8,
     elevation: 2,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: '#fff',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   recentEarningsContent: {
     padding: 16,
@@ -416,7 +463,7 @@ const styles = StyleSheet.create({
   recentEarningsAmount: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#4CAF50',
+    color: '#9C27B0',
   },
   recentEarningsIcon: {
     position: 'absolute',
@@ -435,9 +482,13 @@ const styles = StyleSheet.create({
   comparisonContainer: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 20,
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   comparisonItem: {
     flex: 1,
@@ -464,9 +515,13 @@ const styles = StyleSheet.create({
   monthlyCard: {
     marginBottom: 12,
     elevation: 2,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: '#fff',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   monthlyCardHeader: {
     flexDirection: 'row',
@@ -482,7 +537,7 @@ const styles = StyleSheet.create({
   monthlyAmount: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#4285F4',
+    color: '#9C27B0',
   },
   monthlyCardDetails: {
     flexDirection: 'row',
@@ -500,9 +555,13 @@ const styles = StyleSheet.create({
   subjectCard: {
     marginBottom: 12,
     elevation: 2,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: '#fff',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   subjectCardHeader: {
     flexDirection: 'row',
@@ -518,7 +577,7 @@ const styles = StyleSheet.create({
   subjectAmount: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#4285F4',
+    color: '#9C27B0',
   },
   progressBarContainer: {
     height: 8,
@@ -539,6 +598,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#666',
     marginTop: 20,
+    padding: 30,
   },
 });
 
