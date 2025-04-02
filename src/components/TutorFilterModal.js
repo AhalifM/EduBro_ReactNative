@@ -7,7 +7,11 @@ import {
   TouchableOpacity,
   ScrollView,
   Switch,
-  TextInput
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -110,171 +114,183 @@ const TutorFilterModal = ({ visible, onClose, onApplyFilters, subjects, initialF
       visible={visible}
       onRequestClose={onClose}
     >
-      <TouchableOpacity 
-        style={styles.modalOverlay} 
-        activeOpacity={1} 
-        onPress={onClose}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
       >
-        <TouchableOpacity 
-          style={styles.modalContent} 
-          activeOpacity={1} 
-          onPress={(e) => e.stopPropagation()}
-        >
-          <TouchableOpacity 
-            style={styles.closeBarButton} 
-            onPress={onClose}
-            accessibilityLabel="Close filter panel"
-          >
-            <View style={styles.closeBar}></View>
-          </TouchableOpacity>
-          
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Filter Tutors</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton} accessibilityLabel="Close filter panel">
-              <MaterialIcons name="close" size={24} color="#333" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.filtersContainer}>
-            {/* Subject Filter */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterTitle}>Subject</Text>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.subjectContainer}
-              >
-                {subjects?.map((subject) => (
-                  <TouchableOpacity
-                    key={subject.id}
-                    style={[
-                      styles.subjectChip,
-                      filters.subject?.id === subject.id && styles.selectedSubjectChip
-                    ]}
-                    onPress={() => handleSubjectSelect(subject)}
-                  >
-                    <Text 
-                      style={[
-                        styles.subjectChipText,
-                        filters.subject?.id === subject.id && styles.selectedSubjectChipText
-                      ]}
-                    >
-                      {subject.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
-            {/* Rating Filter */}
-            <View style={styles.filterSection}>
-              <View style={styles.filterHeader}>
-                <Text style={styles.filterTitle}>Minimum Rating</Text>
-                <Text style={styles.filterValue}>{filters.minRating.toFixed(1)}+</Text>
-              </View>
-              <Slider
-                style={styles.slider}
-                minimumValue={0}
-                maximumValue={5}
-                step={0.5}
-                value={filters.minRating}
-                onValueChange={handleRatingChange}
-                minimumTrackTintColor="#2196F3"
-                maximumTrackTintColor="#D1D1D1"
-                thumbTintColor="#2196F3"
-              />
-              <View style={styles.sliderLabels}>
-                <Text style={styles.sliderLabel}>Any</Text>
-                <Text style={styles.sliderLabel}>5.0</Text>
-              </View>
-            </View>
-
-            {/* Price Range Filter */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterTitle}>Price Range ($/hr)</Text>
-              <View style={styles.priceInputsContainer}>
-                <View style={styles.priceInputWrapper}>
-                  <Text style={styles.priceInputLabel}>Min</Text>
-                  <TextInput
-                    style={styles.priceInput}
-                    value={filters.minPrice.toString()}
-                    onChangeText={(text) => handlePriceRangeChange('min', parseInt(text) || 0)}
-                    keyboardType="numeric"
-                  />
-                </View>
-                <Text style={styles.priceSeparator}>-</Text>
-                <View style={styles.priceInputWrapper}>
-                  <Text style={styles.priceInputLabel}>Max</Text>
-                  <TextInput
-                    style={styles.priceInput}
-                    value={filters.maxPrice.toString()}
-                    onChangeText={(text) => handlePriceRangeChange('max', parseInt(text) || 0)}
-                    keyboardType="numeric"
-                  />
-                </View>
-              </View>
-            </View>
-
-            {/* Date Filter */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterTitle}>Available On Date</Text>
-              <TouchableOpacity
-                style={styles.datePickerButton}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <MaterialIcons name="event" size={20} color="#2196F3" />
-                <Text style={styles.dateButtonText}>
-                  {filters.date ? format(filters.date, 'MMMM d, yyyy') : 'Select a date'}
-                </Text>
-                {filters.date && (
-                  <TouchableOpacity
-                    style={styles.clearDateButton}
-                    onPress={() => setFilters(prev => ({ ...prev, date: null }))}
-                  >
-                    <MaterialIcons name="close" size={16} color="#666" />
-                  </TouchableOpacity>
-                )}
-              </TouchableOpacity>
-              {showDatePicker && (
-                <DateTimePicker
-                  value={filters.date || new Date()}
-                  mode="date"
-                  display="default"
-                  onChange={handleDateChange}
-                  minimumDate={new Date()}
-                />
-              )}
-            </View>
-          </ScrollView>
-
-          <View style={styles.modalFooter}>
-            <TouchableOpacity
-              style={styles.clearButton}
-              onPress={handleClearFilters}
-              disabled={!areFiltersActive()}
-            >
-              <Text style={[
-                styles.clearButtonText,
-                !areFiltersActive() && styles.disabledButtonText
-              ]}>
-                Clear All
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.exitButton}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={{ flex: 1 }}>
+            <TouchableOpacity 
+              style={styles.modalOverlay} 
+              activeOpacity={1} 
               onPress={onClose}
             >
-              <Text style={styles.exitButtonText}>Exit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.applyButton}
-              onPress={handleApplyFilters}
-            >
-              <Text style={styles.applyButtonText}>Apply Filters</Text>
+              <TouchableOpacity 
+                style={styles.modalContent} 
+                activeOpacity={1} 
+                onPress={(e) => e.stopPropagation()}
+              >
+                <TouchableOpacity 
+                  style={styles.closeBarButton} 
+                  onPress={onClose}
+                  accessibilityLabel="Close filter panel"
+                >
+                  <View style={styles.closeBar}></View>
+                </TouchableOpacity>
+                
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Filter Tutors</Text>
+                  <TouchableOpacity onPress={onClose} style={styles.closeButton} accessibilityLabel="Close filter panel">
+                    <MaterialIcons name="close" size={24} color="#333" />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView style={styles.filtersContainer}>
+                  {/* Subject Filter */}
+                  <View style={styles.filterSection}>
+                    <Text style={styles.filterTitle}>Subject</Text>
+                    <ScrollView 
+                      horizontal 
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.subjectContainer}
+                    >
+                      {subjects?.map((subject) => (
+                        <TouchableOpacity
+                          key={subject.id}
+                          style={[
+                            styles.subjectChip,
+                            filters.subject?.id === subject.id && styles.selectedSubjectChip
+                          ]}
+                          onPress={() => handleSubjectSelect(subject)}
+                        >
+                          <Text 
+                            style={[
+                              styles.subjectChipText,
+                              filters.subject?.id === subject.id && styles.selectedSubjectChipText
+                            ]}
+                          >
+                            {subject.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  {/* Rating Filter */}
+                  <View style={styles.filterSection}>
+                    <View style={styles.filterHeader}>
+                      <Text style={styles.filterTitle}>Minimum Rating</Text>
+                      <Text style={styles.filterValue}>{filters.minRating.toFixed(1)}+</Text>
+                    </View>
+                    <Slider
+                      style={styles.slider}
+                      minimumValue={0}
+                      maximumValue={5}
+                      step={0.5}
+                      value={filters.minRating}
+                      onValueChange={handleRatingChange}
+                      minimumTrackTintColor="#2196F3"
+                      maximumTrackTintColor="#D1D1D1"
+                      thumbTintColor="#2196F3"
+                    />
+                    <View style={styles.sliderLabels}>
+                      <Text style={styles.sliderLabel}>Any</Text>
+                      <Text style={styles.sliderLabel}>5.0</Text>
+                    </View>
+                  </View>
+
+                  {/* Price Range Filter */}
+                  <View style={styles.filterSection}>
+                    <Text style={styles.filterTitle}>Price Range ($/hr)</Text>
+                    <View style={styles.priceInputsContainer}>
+                      <View style={styles.priceInputWrapper}>
+                        <Text style={styles.priceInputLabel}>Min</Text>
+                        <TextInput
+                          style={styles.priceInput}
+                          value={filters.minPrice.toString()}
+                          onChangeText={(text) => handlePriceRangeChange('min', parseInt(text) || 0)}
+                          keyboardType="numeric"
+                        />
+                      </View>
+                      <Text style={styles.priceSeparator}>-</Text>
+                      <View style={styles.priceInputWrapper}>
+                        <Text style={styles.priceInputLabel}>Max</Text>
+                        <TextInput
+                          style={styles.priceInput}
+                          value={filters.maxPrice.toString()}
+                          onChangeText={(text) => handlePriceRangeChange('max', parseInt(text) || 0)}
+                          keyboardType="numeric"
+                        />
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Date Filter */}
+                  <View style={styles.filterSection}>
+                    <Text style={styles.filterTitle}>Available On Date</Text>
+                    <TouchableOpacity
+                      style={styles.datePickerButton}
+                      onPress={() => setShowDatePicker(true)}
+                    >
+                      <MaterialIcons name="event" size={20} color="#2196F3" />
+                      <Text style={styles.dateButtonText}>
+                        {filters.date ? format(filters.date, 'MMMM d, yyyy') : 'Select a date'}
+                      </Text>
+                      {filters.date && (
+                        <TouchableOpacity
+                          style={styles.clearDateButton}
+                          onPress={() => setFilters(prev => ({ ...prev, date: null }))}
+                        >
+                          <MaterialIcons name="close" size={16} color="#666" />
+                        </TouchableOpacity>
+                      )}
+                    </TouchableOpacity>
+                    {showDatePicker && (
+                      <DateTimePicker
+                        value={filters.date || new Date()}
+                        mode="date"
+                        display="default"
+                        onChange={handleDateChange}
+                        minimumDate={new Date()}
+                      />
+                    )}
+                  </View>
+                  
+                  {/* Add extra padding at bottom for better scrolling with keyboard */}
+                  <View style={{ height: 120 }} />
+                </ScrollView>
+
+                <View style={styles.modalFooter}>
+                  <TouchableOpacity
+                    style={styles.clearButton}
+                    onPress={handleClearFilters}
+                    disabled={!areFiltersActive()}
+                  >
+                    <Text style={[
+                      styles.clearButtonText,
+                      !areFiltersActive() && styles.disabledButtonText
+                    ]}>
+                      Clear All
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.exitButton}
+                    onPress={onClose}
+                  >
+                    <Text style={styles.exitButtonText}>Exit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.applyButton}
+                    onPress={handleApplyFilters}
+                  >
+                    <Text style={styles.applyButtonText}>Apply Filters</Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -289,7 +305,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    height: '80%',
+    height: Platform.OS === 'ios' ? '80%' : '90%',
+    maxHeight: Platform.OS === 'ios' ? 600 : '90%',
   },
   modalHeader: {
     flexDirection: 'row',

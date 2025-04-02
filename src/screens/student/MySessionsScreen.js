@@ -323,11 +323,7 @@ const MySessionsScreen = ({ navigation }) => {
                         setSelectedSession(session);
                         setIsReviewModalVisible(true);
                       },
-                    },
-                    {
-                      text: 'Later',
-                      onPress: () => fetchSessions(),
-                    },
+                    }
                   ]
                 );
               } else {
@@ -677,7 +673,7 @@ const MySessionsScreen = ({ navigation }) => {
                         buttonColor="#FF9800"
                         onPress={() => handleLeaveReview(item)}
                       >
-                        Review
+                        Rate Tutor
                       </Button>
                     )}
                     
@@ -701,9 +697,8 @@ const MySessionsScreen = ({ navigation }) => {
                     style={styles.reviewButton}
                     buttonColor="#FF9800"
                     textColor="#FFFFFF"
-                    onPress={() => handleLeaveReview(item)}
                   >
-                    Leave Review
+                    Tutor Rated
                   </Button>
                 )}
                 
@@ -772,7 +767,7 @@ const MySessionsScreen = ({ navigation }) => {
           </Text>
           <TouchableOpacity
             style={styles.findTutorButton}
-            onPress={() => navigation.navigate('FindTutor')}
+            onPress={() => navigation.navigate('TutorsTab')}
           >
             <Text style={styles.findTutorButtonText}>Find a Tutor</Text>
           </TouchableOpacity>
@@ -918,7 +913,7 @@ const MySessionsScreen = ({ navigation }) => {
               filter === 'past' ? styles.selectedChipText : styles.unselectedChipText
             ]}
           >
-            Past
+            Completed
           </Chip>
           <Chip
             selected={filter === 'cancelled'}
