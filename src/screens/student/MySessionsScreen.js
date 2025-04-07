@@ -142,8 +142,9 @@ const MySessionsScreen = ({ navigation }) => {
                  session.status === 'confirmed' && 
                  session.status !== 'rescheduled');
         } else if (filter === 'past') {
-          // Include sessions with dates in the past or those that are completed
-          return (sessionDate < today && session.status !== 'cancelled');
+          // Include sessions with dates in the past OR those that are completed regardless of date
+          return (sessionDate < today && session.status !== 'cancelled') || 
+                 session.status === 'completed';
         } else if (filter === 'cancelled') {
           // Only show cancelled sessions
           return session.status === 'cancelled';
@@ -282,19 +283,7 @@ const MySessionsScreen = ({ navigation }) => {
       return;
     }
 
-    // Check if session time has passed
-    const [hours, minutes] = session.startTime.split(':').map(Number);
-    const sessionDateTime = new Date(session.date);
-    sessionDateTime.setHours(hours, minutes, 0, 0);
-    const now = new Date();
-    
-    if (sessionDateTime > now) {
-      Alert.alert(
-        'Cannot Complete Session',
-        'You can only complete sessions that have already occurred.'
-      );
-      return;
-    }
+    // Time check removed to allow completion at any time
     
     Alert.alert(
       'Complete Session',
@@ -479,15 +468,15 @@ const MySessionsScreen = ({ navigation }) => {
     let color, icon, label;
     
     switch (status) {
-      case 'confirmed':
-        color = '#4CAF50';
-        icon = 'check-circle';
-        label = 'Confirmed';
-        break;
       case 'completed':
         color = '#4CAF50';
         icon = 'check-circle';
         label = 'Completed';
+        break;
+      case 'confirmed':
+        color = '#4CAF50';
+        icon = 'check-circle';
+        label = 'Confirmed';
         break;
       case 'pending':
         color = '#FF9800';
@@ -651,80 +640,106 @@ const MySessionsScreen = ({ navigation }) => {
               
               <View style={styles.actionsContainer}>
                 {item.status === 'confirmed' && filter === 'upcoming' && (
-                  <Button 
-                    mode="outlined"
-                    icon="close-circle"
-                    style={[styles.cancelButton, { flex: 1 }]}
-                    textColor="#F44336"
-                    onPress={() => handleCancelSession(item)}
-                  >
-                    Cancel
-                  </Button>
+                  <View style={styles.buttonRow}>
+                    <TouchableOpacity 
+                      style={styles.cancelButtonContainer}
+                      onPress={() => handleCancelSession(item)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.buttonContent}>
+                        <MaterialIcons name="close" size={18} color="#F44336" />
+                        <Text style={styles.cancelButtonText}>Cancel</Text>
+                      </View>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={styles.completeButtonContainer}
+                      onPress={() => handleCompleteSession(item)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.buttonContent}>
+                        <MaterialIcons name="check-circle" size={18} color="#FFFFFF" />
+                        <Text style={styles.completeButtonText}>Complete</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
                 )}
                 
                 {item.status === 'confirmed' && filter === 'past' && (
-                  <>
+                  <View style={styles.buttonRow}>
                     {!item.reviewSubmitted && (
-                      <Button 
-                        mode="contained"
-                        icon="star"
-                        style={[styles.actionButton, styles.reviewButton]}
-                        labelStyle={styles.buttonLabel}
-                        buttonColor="#FF9800"
+                      <TouchableOpacity 
+                        style={styles.reviewButtonContainer}
                         onPress={() => handleLeaveReview(item)}
+                        activeOpacity={0.7}
                       >
-                        Rate Tutor
-                      </Button>
+                        <View style={styles.buttonContent}>
+                          <MaterialIcons name="star" size={18} color="#FFFFFF" />
+                          <Text style={styles.completeButtonText}>Rate Tutor</Text>
+                        </View>
+                      </TouchableOpacity>
                     )}
                     
-                    <Button 
-                      mode="contained"
-                      icon="check-circle"
-                      style={[styles.actionButton, styles.completeButton]}
-                      labelStyle={styles.buttonLabel}
-                      buttonColor="#4CAF50"
+                    <TouchableOpacity 
+                      style={styles.completeButtonContainer}
                       onPress={() => handleCompleteSession(item)}
+                      activeOpacity={0.7}
                     >
-                      Complete
-                    </Button>
-                  </>
+                      <View style={styles.buttonContent}>
+                        <MaterialIcons name="check-circle" size={18} color="#FFFFFF" />
+                        <Text style={styles.completeButtonText}>Complete</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
                 )}
                 
-                {item.status !== 'confirmed' && item.status !== 'cancelled' && !item.reviewSubmitted && filter === 'past' && (
-                  <Button 
-                    mode="contained"
-                    icon="star"
-                    style={styles.reviewButton}
-                    buttonColor="#FF9800"
-                    textColor="#FFFFFF"
+                {item.status === 'completed' && !item.reviewSubmitted && (
+                  <TouchableOpacity 
+                    style={styles.reviewButtonContainer}
+                    activeOpacity={1}
                   >
-                    Tutor Rated
-                  </Button>
+                    <View style={styles.buttonContent}>
+                      <MaterialIcons name="star" size={18} color="#FFFFFF" />
+                      <Text style={styles.completeButtonText}>Rate Tutor</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                
+                {item.status !== 'confirmed' && item.status !== 'cancelled' && item.status !== 'completed' && !item.reviewSubmitted && filter === 'past' && (
+                  <TouchableOpacity 
+                    style={styles.reviewButtonContainer}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.buttonContent}>
+                      <MaterialIcons name="star" size={18} color="#FFFFFF" />
+                      <Text style={styles.completeButtonText}>Tutor Rated</Text>
+                    </View>
+                  </TouchableOpacity>
                 )}
                 
                 {item.status === 'rescheduled' && (
-                  <View style={styles.rescheduleButtonsContainer}>
-                    <Button 
-                      mode="contained"
-                      icon="check"
-                      style={styles.acceptButton}
-                      buttonColor="#4CAF50"
-                      textColor="#FFFFFF"
+                  <View style={styles.buttonRow}>
+                    <TouchableOpacity 
+                      style={styles.acceptButtonContainer}
                       onPress={() => handleAcceptReschedule(item)}
+                      activeOpacity={0.7}
                     >
-                      Accept
-                    </Button>
+                      <View style={styles.buttonContent}>
+                        <MaterialIcons name="check" size={18} color="#FFFFFF" />
+                        <Text style={styles.completeButtonText}>Accept</Text>
+                      </View>
+                    </TouchableOpacity>
                     
-                    <Button 
-                      mode="contained"
-                      icon="close"
-                      style={styles.rejectButton}
-                      buttonColor="#F44336"
-                      textColor="#FFFFFF"
+                    <TouchableOpacity 
+                      style={styles.declineButtonContainer}
                       onPress={() => handleDeclineReschedule(item)}
+                      activeOpacity={0.7}
                     >
-                      Decline
-                    </Button>
+                      <View style={styles.buttonContent}>
+                        <MaterialIcons name="close" size={18} color="#FFFFFF" />
+                        <Text style={styles.completeButtonText}>Decline</Text>
+                      </View>
+                    </TouchableOpacity>
                   </View>
                 )}
                 
@@ -737,15 +752,16 @@ const MySessionsScreen = ({ navigation }) => {
                       </Text>
                     </View>
                     
-                    <Button 
-                      mode="outlined"
-                      icon="close-circle"
-                      style={[styles.cancelButton, { marginTop: 8, width: '100%' }]}
-                      textColor="#F44336"
+                    <TouchableOpacity 
+                      style={[styles.cancelButtonContainer, { width: '100%', marginTop: 8 }]}
                       onPress={() => handleCancelSession(item)}
+                      activeOpacity={0.7}
                     >
-                      Cancel Request
-                    </Button>
+                      <View style={styles.buttonContent}>
+                        <MaterialIcons name="close" size={18} color="#F44336" />
+                        <Text style={styles.cancelButtonText}>Cancel Request</Text>
+                      </View>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
@@ -775,9 +791,9 @@ const MySessionsScreen = ({ navigation }) => {
       ) : filter === 'past' ? (
         <>
           <MaterialIcons name="history" size={64} color="#9E9E9E" style={styles.emptyIcon} />
-          <Text style={styles.emptyText}>No past sessions</Text>
+          <Text style={styles.emptyText}>No completed sessions</Text>
           <Text style={styles.emptySubText}>
-            Your completed sessions will appear here
+            Sessions you complete or those that have passed will appear here
           </Text>
         </>
       ) : filter === 'cancelled' ? (
@@ -1191,26 +1207,80 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   actionButton: {
-    marginRight: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    minWidth: 120,
+    flex: 1,
+    borderRadius: 25,
+    marginHorizontal: 4,
+    height: 45,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
   },
-  viewButton: {
-    backgroundColor: '#2196F3',
-  },
-  reviewButton: {
-    backgroundColor: '#FF9800',
+  buttonLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#FFFFFF',
   },
   completeButton: {
     backgroundColor: '#4CAF50',
+    borderColor: '#4CAF50',
   },
-  cancelButton: {
-    borderRadius: 8,
+  cancelButtonContainer: {
+    flex: 1,
+    height: 45,
+    borderRadius: 25,
     borderColor: '#F44336',
     borderWidth: 1.5,
-    marginBottom: 8,
-    minWidth: 120,
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4,
+  },
+  completeButtonContainer: {
+    flex: 1,
+    height: 45,
+    borderRadius: 25,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 4,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    marginLeft: 6,
+    fontSize: 14,
+    color: '#F44336',
+    fontWeight: '500',
+  },
+  completeButtonText: {
+    marginLeft: 6,
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+  reviewButton: {
+    backgroundColor: '#FF9800',
+    borderColor: '#FF9800',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginVertical: 8,
+    gap: 8,
   },
   rescheduleButtonsContainer: {
     flexDirection: 'row',
@@ -1383,6 +1453,48 @@ const styles = StyleSheet.create({
     color: '#FF9800',
     marginLeft: 8,
     fontWeight: '500',
+  },
+  reviewButtonContainer: {
+    flex: 1,
+    height: 45,
+    borderRadius: 25,
+    backgroundColor: '#FF9800',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+  },
+  acceptButtonContainer: {
+    flex: 1,
+    height: 45,
+    borderRadius: 25,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+  },
+  declineButtonContainer: {
+    flex: 1,
+    height: 45,
+    borderRadius: 25,
+    backgroundColor: '#F44336',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 4,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
   },
 });
 

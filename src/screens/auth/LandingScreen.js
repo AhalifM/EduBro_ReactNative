@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     marginTop: -30,
-    paddingHorizontal: 24,
+    paddingHorizontal: 50,
     paddingTop: 30,
   },
   infoContainer: {

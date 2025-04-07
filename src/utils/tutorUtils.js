@@ -895,15 +895,7 @@ export const completeSessionAndReleasePayment = async (sessionId, userId) => {
       return { success: false, error: "Session is already marked as completed." };
     }
     
-    // Check if session time has passed
-    const [hours, minutes] = session.startTime.split(':').map(Number);
-    const sessionDateTime = new Date(session.date);
-    sessionDateTime.setHours(hours, minutes, 0, 0);
-    const now = new Date();
-    
-    if (sessionDateTime > now) {
-      return { success: false, error: "You can only complete sessions that have already occurred." };
-    }
+    // Time check removed to allow completion at any time
     
     // Update session status to completed
     await updateDoc(sessionRef, {
