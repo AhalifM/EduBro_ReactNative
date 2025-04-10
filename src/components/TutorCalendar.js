@@ -102,9 +102,32 @@ const TutorCalendar = React.memo(({ navigation }) => {
       
       if (result.success) {
         const dateData = result.availability.find(d => d.date === date);
-        setAvailableSlots(dateData ? dateData.slots : []);
+        const slots = dateData ? dateData.slots : [];
+        setAvailableSlots(slots);
+        
+        // Now update the marker based on whether there are any available slots
+        const hasAvailableSlots = slots && slots.length > 0;
+        
+        setMarkedDates(prevMarked => ({
+          ...prevMarked,
+          [date]: {
+            ...prevMarked[date],
+            marked: hasAvailableSlots,
+            dotColor: hasAvailableSlots ? '#9C27B0' : undefined,
+          }
+        }));
       } else {
         setAvailableSlots([]);
+        
+        // No available slots, remove marker
+        setMarkedDates(prevMarked => ({
+          ...prevMarked,
+          [date]: {
+            ...prevMarked[date],
+            marked: false,
+            dotColor: undefined,
+          }
+        }));
       }
     } catch (error) {
       console.error('Error fetching slots for date:', error);
@@ -143,11 +166,14 @@ const TutorCalendar = React.memo(({ navigation }) => {
         }
       });
       
-      // Add new selection
+      // Add new selection but don't mark it yet - we'll update after fetching slots
+      // Only include the marked property if it was already marked before
+      const wasMarkedBefore = prevMarkedDates[dateString]?.marked;
+      
       newMarkedDates[dateString] = {
-        ...(newMarkedDates[dateString] || {}),
-        marked: true,
-        dotColor: '#9C27B0',
+        ...(prevMarkedDates[dateString] || {}),
+        marked: wasMarkedBefore || false, // Only keep the marker if it was already there
+        dotColor: wasMarkedBefore ? '#9C27B0' : undefined,
         selected: true,
         selectedColor: '#E6F0FA'
       };
@@ -189,45 +215,45 @@ const TutorCalendar = React.memo(({ navigation }) => {
       
       if (result.success) {
         // Refresh slots for the selected date - use functional updates
+        let updatedSlots = [];
+        
         setAvailableSlots(prevSlots => {
           if (!prevSlots) return [];
           
           if (isSlotAvailable) {
             // Remove the slot
-            return prevSlots.filter(slot => slot?.startTime !== timeSlot);
+            updatedSlots = prevSlots.filter(slot => slot?.startTime !== timeSlot);
+            return updatedSlots;
           } else {
             // Add the slot
-            return [...prevSlots, { 
+            const newSlot = { 
               startTime: timeSlot, 
               endTime: endTime, 
               isBooked: false 
-            }];
+            };
+            updatedSlots = [...prevSlots, newSlot];
+            return updatedSlots;
           }
         });
         
         // Update calendar dots - use functional updates
-        setMarkedDates(prevMarkedDates => {
-          const newMarkedDates = { ...prevMarkedDates };
-          
-          if (!isSlotAvailable) {
-            // If adding a slot to a date
+        // We do this after updating availableSlots to ensure we have the latest count
+        setTimeout(() => {
+          setMarkedDates(prevMarkedDates => {
+            const newMarkedDates = { ...prevMarkedDates };
+            const hasAnySlots = updatedSlots.length > 0;
+            
             newMarkedDates[selectedDate] = {
               ...(prevMarkedDates[selectedDate] || {}),
-              marked: true,
-              dotColor: '#9C27B0',
+              marked: hasAnySlots,
+              dotColor: hasAnySlots ? '#9C27B0' : undefined,
               selected: true,
               selectedColor: '#E6F0FA'
             };
-          } else if (availableSlots?.length === 1) {
-            // If removing the last slot, unmark the date but keep it selected
-            newMarkedDates[selectedDate] = {
-              selected: true,
-              selectedColor: '#E6F0FA'
-            };
-          }
-          
-          return newMarkedDates;
-        });
+            
+            return newMarkedDates;
+          });
+        }, 0);
       } else {
         Alert.alert('Error', result.error || 'Failed to update availability');
       }
@@ -269,11 +295,11 @@ const TutorCalendar = React.memo(({ navigation }) => {
           </Text>
           
           {isAvailable && (
-            <MaterialIcons name="check-circle" size={18} color="#9C27B0" style={styles.slotIcon} />
+            <MaterialIcons name="check-circle" size={18} color="#4CAF50" style={styles.slotIcon} />
           )}
           
           {isBooked && (
-            <MaterialIcons name="event-busy" size={18} color="#E91E63" style={styles.slotIcon} />
+            <MaterialIcons name="event-busy" size={18} color="#F44336" style={styles.slotIcon} />
           )}
         </TouchableOpacity>
       );
@@ -381,11 +407,11 @@ const TutorCalendar = React.memo(({ navigation }) => {
           
           <View style={styles.legendContainer}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#9C27B0' }]} />
+              <View style={[styles.legendDot, { backgroundColor: '#4CAF50' }]} />
               <Text style={styles.legendText}>Available</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#E91E63' }]} />
+              <View style={[styles.legendDot, { backgroundColor: '#F44336' }]} />
               <Text style={styles.legendText}>Booked</Text>
             </View>
             <View style={styles.legendItem}>
@@ -498,14 +524,17 @@ const styles = StyleSheet.create({
   unavailableSlot: {
     backgroundColor: '#FAFAFA',
     borderColor: '#E0E0E0',
+    borderWidth: 2,
   },
   availableSlot: {
-    backgroundColor: '#F3E5F5',
-    borderColor: '#9C27B0',
+    backgroundColor: '#E8F5E9',
+    borderColor: '#4CAF50',
+    borderWidth: 2.5,
   },
   bookedSlot: {
-    backgroundColor: '#FCE4EC',
-    borderColor: '#E91E63',
+    backgroundColor: '#FFEBEE',
+    borderColor: '#F44336',
+    borderWidth: 2.5,
   },
   timeSlotText: {
     fontSize: 16,
@@ -515,10 +544,10 @@ const styles = StyleSheet.create({
     color: '#9E9E9E',
   },
   availableSlotText: {
-    color: '#9C27B0',
+    color: '#4CAF50',
   },
   bookedSlotText: {
-    color: '#E91E63',
+    color: '#F44336',
   },
   slotIcon: {
     marginLeft: 8,

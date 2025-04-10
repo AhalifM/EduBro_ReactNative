@@ -28,6 +28,15 @@ export const createChat = async (sessionId, sessionData) => {
       return { success: true, chatId: sessionId };
     }
     
+    // Get student and tutor data to include profile photos
+    const studentRef = doc(db, 'users', sessionData.studentId);
+    const tutorRef = doc(db, 'users', sessionData.tutorId);
+    const studentDoc = await getDoc(studentRef);
+    const tutorDoc = await getDoc(tutorRef);
+    
+    const studentData = studentDoc.exists() ? studentDoc.data() : {};
+    const tutorData = tutorDoc.exists() ? tutorDoc.data() : {};
+    
     // Create new chat document
     await setDoc(chatRef, {
       createdAt: serverTimestamp(),
@@ -42,8 +51,10 @@ export const createChat = async (sessionId, sessionData) => {
       participants: {
         studentId: sessionData.studentId,
         studentName: sessionData.studentName,
+        studentPhoto: studentData.photoURL || null,
         tutorId: sessionData.tutorId,
-        tutorName: sessionData.tutorName
+        tutorName: sessionData.tutorName,
+        tutorPhoto: tutorData.photoURL || null
       },
       lastMessage: null,
       lastMessageTime: null,

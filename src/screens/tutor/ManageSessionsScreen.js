@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
-import { Text, Button, Card, useTheme, ActivityIndicator, List, FAB } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Alert, Platform, TouchableOpacity } from 'react-native';
+import { Text, Button, Card, useTheme, ActivityIndicator, List, FAB, TouchableRipple } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,6 +14,7 @@ const ManageSessionsScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState([]);
   const [processingSession, setProcessingSession] = useState(null);
+  const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
     fetchSessions();
@@ -227,6 +228,100 @@ const ManageSessionsScreen = ({ navigation }) => {
     );
   };
 
+  // Filter sessions based on active tab
+  const getFilteredSessions = () => {
+    if (!sessions || sessions.length === 0) return [];
+    
+    switch (activeTab) {
+      case 0: // Upcoming sessions
+        return sessions.filter(session => 
+          session && (session.status === 'confirmed' || session.status === 'pending')
+        );
+      case 1: // Completed sessions
+        return sessions.filter(session => 
+          session && session.status === 'completed'
+        );
+      case 2: // Cancelled sessions
+        return sessions.filter(session => 
+          session && session.status === 'cancelled'
+        );
+      default:
+        return sessions;
+    }
+  };
+
+  // Custom TabBar for the tabs
+  const renderTabBar = () => {
+    const tabs = [
+      { label: 'Upcoming', icon: 'event' },
+      { label: 'Completed', icon: 'check-circle' },
+      { label: 'Cancelled', icon: 'cancel' }
+    ];
+
+    return (
+      <View style={styles.tabBar}>
+        {tabs.map((tab, index) => (
+          <TouchableRipple
+            key={index}
+            style={[
+              styles.tabItem,
+              activeTab === index && styles.activeTabItem
+            ]}
+            onPress={() => setActiveTab(index)}
+            rippleColor="rgba(156, 39, 176, 0.1)"
+          >
+            <View style={styles.tabContent}>
+              <MaterialIcons 
+                name={tab.icon} 
+                size={22} 
+                color={activeTab === index ? '#9C27B0' : '#6B7280'} 
+              />
+              <Text 
+                style={[
+                  styles.tabLabel, 
+                  activeTab === index && styles.activeTabLabel
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </View>
+          </TouchableRipple>
+        ))}
+      </View>
+    );
+  };
+
+  // Render tab content
+  const renderTabContent = () => {
+    const filteredSessions = getFilteredSessions();
+    
+    if (filteredSessions.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <MaterialIcons name="event-busy" size={48} color="#9E9E9E" />
+          <Text style={styles.emptyText}>No {activeTab === 0 ? 'upcoming' : activeTab === 1 ? 'completed' : 'cancelled'} sessions</Text>
+          <Text style={styles.emptySubtext}>
+            {activeTab === 0 
+              ? 'Your upcoming sessions will appear here' 
+              : activeTab === 1 
+                ? 'Sessions you have completed will appear here'
+                : 'Sessions that were cancelled will appear here'
+            }
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {filteredSessions.map(session => session ? renderSessionItem(session) : null)}
+      </ScrollView>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="light" />
@@ -240,37 +335,30 @@ const ManageSessionsScreen = ({ navigation }) => {
         >
           <SafeAreaView edges={['top']} style={styles.safeAreaTop}>
             <View style={styles.headerContent}>
+              <TouchableOpacity 
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+              >
+                <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
               <Text style={styles.headerTitle}>Manage Sessions</Text>
+              <View style={styles.rightPlaceholder} />
             </View>
           </SafeAreaView>
         </LinearGradient>
       </View>
       
       <View style={styles.container}>
+        {/* Tabs Bar */}
+        {renderTabBar()}
+        
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#9C27B0" />
             <Text style={styles.loadingText}>Loading sessions...</Text>
           </View>
         ) : (
-          <>
-            {!sessions || sessions.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <MaterialIcons name="event-busy" size={48} color="#9E9E9E" />
-                <Text style={styles.emptyText}>No sessions found</Text>
-                <Text style={styles.emptySubtext}>
-                  Your upcoming sessions will appear here
-                </Text>
-              </View>
-            ) : (
-              <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-              >
-                {sessions.map(session => session ? renderSessionItem(session) : null)}
-              </ScrollView>
-            )}
-          </>
+          renderTabContent()
         )}
         
         <FAB
@@ -310,15 +398,60 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   headerContent: {
+    flexDirection: 'row',
     padding: 20,
     paddingTop: Platform.OS === 'android' ? 16 : 0,
     paddingBottom: 24,
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    flex: 1,
+    textAlign: 'center',
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  rightPlaceholder: {
+    width: 40,
+  },
+  // Tab bar styles
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  tabItem: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  activeTabItem: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#9C27B0',
+  },
+  tabContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabLabel: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  activeTabLabel: {
+    color: '#9C27B0',
+    fontWeight: 'bold',
   },
   scrollContent: {
     padding: 16,

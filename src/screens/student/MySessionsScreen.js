@@ -869,98 +869,133 @@ const MySessionsScreen = ({ navigation }) => {
           decelerationRate="fast"
           snapToAlignment="center"
         >
-          <Chip
-            selected={filter === 'upcoming'}
-            onPress={() => handleTabChange('upcoming')}
-            style={[
-              styles.filterChip, 
-              filter === 'upcoming' ? styles.selectedChip : styles.unselectedChip
-            ]}
-            selectedColor="#FFFFFF"
-            textStyle={[
-              styles.chipText,
-              filter === 'upcoming' ? styles.selectedChipText : styles.unselectedChipText
-            ]}
-          >
-            Upcoming
-          </Chip>
-          <Chip
-            selected={filter === 'pending'}
-            onPress={() => handleTabChange('pending')}
-            style={[
-              styles.filterChip, 
-              filter === 'pending' ? styles.selectedChip : styles.unselectedChip
-            ]}
-            selectedColor="#FFFFFF"
-            textStyle={[
-              styles.chipText,
-              filter === 'pending' ? styles.selectedChipText : styles.unselectedChipText
-            ]}
-          >
-            Pending
-            {hasPendingSessions && filter !== 'pending' && <View style={styles.notificationDot} />}
-          </Chip>
-          <Chip
-            selected={filter === 'rescheduled'}
-            onPress={() => handleTabChange('rescheduled')}
-            style={[
-              styles.filterChip, 
-              filter === 'rescheduled' ? styles.selectedChip : styles.unselectedChip
-            ]}
-            selectedColor="#FFFFFF"
-            textStyle={[
-              styles.chipText,
-              filter === 'rescheduled' ? styles.selectedChipText : styles.unselectedChipText
-            ]}
-          >
-            Rescheduled
-            {hasRescheduledSessions && filter !== 'rescheduled' && <View style={styles.notificationDot} />}
-          </Chip>
-          <Chip
-            selected={filter === 'past'}
-            onPress={() => handleTabChange('past')}
-            style={[
-              styles.filterChip, 
-              filter === 'past' ? styles.selectedChip : styles.unselectedChip
-            ]}
-            selectedColor="#FFFFFF"
-            textStyle={[
-              styles.chipText,
-              filter === 'past' ? styles.selectedChipText : styles.unselectedChipText
-            ]}
-          >
-            Completed
-          </Chip>
-          <Chip
-            selected={filter === 'cancelled'}
-            onPress={() => handleTabChange('cancelled')}
-            style={[
-              styles.filterChip, 
-              filter === 'cancelled' ? styles.selectedChip : styles.unselectedChip
-            ]}
-            selectedColor="#FFFFFF"
-            textStyle={[
-              styles.chipText,
-              filter === 'cancelled' ? styles.selectedChipText : styles.unselectedChipText
-            ]}
-          >
-            Cancelled
-          </Chip>
-          <Chip
-            selected={filter === 'all'}
+          <TouchableOpacity
             onPress={() => handleTabChange('all')}
             style={[
-              styles.filterChip, 
-              filter === 'all' ? styles.selectedChip : styles.unselectedChip
-            ]}
-            selectedColor="#FFFFFF"
-            textStyle={[
-              styles.chipText,
-              filter === 'all' ? styles.selectedChipText : styles.unselectedChipText
+              styles.tabButton,
+              filter === 'all' && styles.activeTabButton
             ]}
           >
-            All
-          </Chip>
+            <View style={styles.tabContent}>
+              <MaterialIcons 
+                name="format-list-bulleted" 
+                size={24} 
+                color={filter === 'all' ? "#FFFFFF" : "#9C27B0"} 
+              />
+              <Text style={[
+                styles.tabText,
+                filter === 'all' && styles.activeTabText
+              ]}>All</Text>
+            </View>
+            {filter === 'all' && <View style={styles.activeIndicator} />}
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            onPress={() => handleTabChange('upcoming')}
+            style={[
+              styles.tabButton,
+              filter === 'upcoming' && styles.activeTabButton
+            ]}
+          >
+            <View style={styles.tabContent}>
+              <MaterialIcons 
+                name="event-available" 
+                size={24} 
+                color={filter === 'upcoming' ? "#FFFFFF" : "#9C27B0"} 
+              />
+              <Text style={[
+                styles.tabText,
+                filter === 'upcoming' && styles.activeTabText
+              ]}>Upcoming</Text>
+            </View>
+            {filter === 'upcoming' && <View style={styles.activeIndicator} />}
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            onPress={() => handleTabChange('pending')}
+            style={[
+              styles.tabButton,
+              filter === 'pending' && styles.activeTabButton
+            ]}
+          >
+            <View style={styles.tabContent}>
+              <MaterialIcons 
+                name="hourglass-top" 
+                size={24} 
+                color={filter === 'pending' ? "#FFFFFF" : "#9C27B0"} 
+              />
+              <Text style={[
+                styles.tabText,
+                filter === 'pending' && styles.activeTabText
+              ]}>Pending</Text>
+              {hasPendingSessions && filter !== 'pending' && <View style={styles.notificationDot} />}
+            </View>
+            {filter === 'pending' && <View style={styles.activeIndicator} />}
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            onPress={() => handleTabChange('rescheduled')}
+            style={[
+              styles.tabButton,
+              filter === 'rescheduled' && styles.activeTabButton
+            ]}
+          >
+            <View style={styles.tabContent}>
+              <MaterialIcons 
+                name="update" 
+                size={24} 
+                color={filter === 'rescheduled' ? "#FFFFFF" : "#9C27B0"} 
+              />
+              <Text style={[
+                styles.tabText,
+                filter === 'rescheduled' && styles.activeTabText
+              ]}>Rescheduled</Text>
+              {hasRescheduledSessions && filter !== 'rescheduled' && <View style={styles.notificationDot} />}
+            </View>
+            {filter === 'rescheduled' && <View style={styles.activeIndicator} />}
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            onPress={() => handleTabChange('past')}
+            style={[
+              styles.tabButton,
+              filter === 'past' && styles.activeTabButton
+            ]}
+          >
+            <View style={styles.tabContent}>
+              <MaterialIcons 
+                name="done-all" 
+                size={24} 
+                color={filter === 'past' ? "#FFFFFF" : "#9C27B0"} 
+              />
+              <Text style={[
+                styles.tabText,
+                filter === 'past' && styles.activeTabText
+              ]}>Completed</Text>
+            </View>
+            {filter === 'past' && <View style={styles.activeIndicator} />}
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            onPress={() => handleTabChange('cancelled')}
+            style={[
+              styles.tabButton,
+              filter === 'cancelled' && styles.activeTabButton
+            ]}
+          >
+            <View style={styles.tabContent}>
+              <MaterialIcons 
+                name="cancel" 
+                size={24} 
+                color={filter === 'cancelled' ? "#FFFFFF" : "#9C27B0"} 
+              />
+              <Text style={[
+                styles.tabText,
+                filter === 'cancelled' && styles.activeTabText
+              ]}>Cancelled</Text>
+            </View>
+            {filter === 'cancelled' && <View style={styles.activeIndicator} />}
+          </TouchableOpacity>
         </ScrollView>
       </View>
       
@@ -1088,55 +1123,72 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   filterContainer: {
-    paddingVertical: 12,
-    backgroundColor: '#FFF',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 3,
-    elevation: 3,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
   filterTabsContainer: {
-    flexDirection: 'row',
     paddingHorizontal: 12,
-    paddingVertical: 4,
   },
-  filterChip: {
-    marginHorizontal: 4,
-    marginVertical: 2,
-    minWidth: 90,
-    borderRadius: 20,
-    elevation: 0,
-    height: 36,
-    paddingHorizontal: 12,
+  tabButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    marginHorizontal: 6,
+    position: 'relative',
+    backgroundColor: '#ffffff',
+    borderWidth: 0.25,
+    borderColor: '#9C27B0',
+    height: 48,
+    marginVertical: 4,
     justifyContent: 'center',
+    overflow: 'visible',
   },
-  selectedChip: {
+  activeTabButton: {
     backgroundColor: '#9C27B0',
-    elevation: 3,
+    elevation: 2,
     shadowColor: '#9C27B0',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
-  unselectedChip: {
-    backgroundColor: '#F5F5F5',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+  tabContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
   },
-  chipText: {
-    textAlign: 'center',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  selectedChipText: {
-    color: '#FFFFFF',
+  tabText: {
+    fontSize: 14,
     fontWeight: '600',
+    color: '#9C27B0',
+    marginLeft: 8,
   },
-  unselectedChipText: {
-    color: '#4B5563',
+  activeTabText: {
+    color: '#FFFFFF',
+  },
+  activeIndicator: {
+    position: 'absolute',
+    bottom: -3,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
+  },
+  notificationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF5252',
+    position: 'absolute',
+    right: -5,
+    top: -5,
   },
   sessionCard: {
     marginBottom: 20,
@@ -1427,15 +1479,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 4,
-  },
-  notificationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FF0000',
-    position: 'absolute',
-    top: 4,
-    right: 4,
   },
   pendingInfoContainer: {
     width: '100%',

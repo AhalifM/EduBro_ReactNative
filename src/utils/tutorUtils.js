@@ -35,6 +35,43 @@ export const getAllSubjects = async () => {
   }
 };
 
+// Check if tutor has active sessions for a subject
+export const hasTutorActiveSessionsForSubject = async (tutorId, subjectId) => {
+  try {
+    const sessionsRef = collection(db, 'sessions');
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    
+    // Query for sessions that:
+    // 1. Belong to this tutor
+    // 2. Are for this subject
+    // 3. Have status 'confirmed' (not cancelled, completed, etc.)
+    // 4. Are today or in the future
+    const q = query(
+      sessionsRef,
+      where('tutorId', '==', tutorId),
+      where('subject', '==', subjectId),
+      where('status', '==', 'confirmed')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    let hasActiveSession = false;
+    
+    querySnapshot.forEach(doc => {
+      const session = doc.data();
+      // Check if the session is today or in the future
+      if (session.date >= today) {
+        hasActiveSession = true;
+      }
+    });
+    
+    return { success: true, hasActiveSession };
+  } catch (error) {
+    console.error("Error checking for active sessions:", error);
+    return { success: false, error: error.message };
+  }
+};
+
 // Add a subject to a tutor's profile
 export const addSubjectToTutor = async (tutorId, subjectId) => {
   try {
@@ -73,6 +110,20 @@ export const addSubjectToTutor = async (tutorId, subjectId) => {
 // Remove a subject from a tutor's profile
 export const removeSubjectFromTutor = async (tutorId, subjectId) => {
   try {
+    // Check if tutor has active sessions for this subject
+    const sessionCheck = await hasTutorActiveSessionsForSubject(tutorId, subjectId);
+    
+    if (!sessionCheck.success) {
+      return { success: false, error: sessionCheck.error };
+    }
+    
+    if (sessionCheck.hasActiveSession) {
+      return { 
+        success: false, 
+        error: "Cannot remove this subject because you have active sessions scheduled. Please complete or cancel all sessions for this subject first." 
+      };
+    }
+    
     const tutorRef = doc(db, 'users', tutorId);
     await updateDoc(tutorRef, {
       subjects: arrayRemove(subjectId),

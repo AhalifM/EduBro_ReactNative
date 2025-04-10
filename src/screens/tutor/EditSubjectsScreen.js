@@ -116,6 +116,9 @@ const EditSubjectsScreen = ({ navigation }) => {
         await refreshUserData();
         
         Alert.alert('Success', `Removed ${subject.name} from your subjects`);
+      } else {
+        // Display the error message from the result
+        Alert.alert('Cannot Remove Subject', result.error);
       }
     } catch (error) {
       console.error('Error removing subject:', error);

@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { TextInput, Button, Text, useTheme, Avatar, HelperText } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { updateUserProfile } from '../../utils/auth';
 import { updateTutorHourlyRate } from '../../utils/tutorUtils';
+import { updateProfilePicture, requestMediaLibraryPermission } from '../../utils/storageUtils';
+import * as ImagePicker from 'expo-image-picker';
 
 const EditProfileScreen = ({ navigation }) => {
   const { user, refreshUserData } = useAuth();
   const theme = useTheme();
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   
   // Form state
   const [fullName, setFullName] = useState('');
@@ -111,6 +114,59 @@ const EditProfileScreen = ({ navigation }) => {
       setLoading(false);
     }
   };
+
+  const handleImagePick = async () => {
+    try {
+      // Request permission to access media library
+      const permissionResult = await requestMediaLibraryPermission();
+      if (!permissionResult.success) {
+        Alert.alert('Permission Required', permissionResult.error);
+        return;
+      }
+
+      // Launch image picker with reduced quality
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.4, // Lower quality to ensure smaller file size
+      });
+
+      if (!result.canceled) {
+        setUploadingImage(true);
+        
+        try {
+          // Upload the image
+          const uploadResult = await updateProfilePicture(user.uid, result.assets[0].uri);
+          
+          if (uploadResult.success) {
+            // Update user profile with new photo URL
+            const updateResult = await updateUserProfile(user.uid, {
+              photoURL: uploadResult.url,
+              updatedAt: new Date().toISOString(),
+            });
+            
+            if (updateResult.success) {
+              await refreshUserData();
+              Alert.alert('Success', 'Profile picture updated successfully');
+            } else {
+              Alert.alert('Error', 'Failed to update profile with new picture');
+            }
+          } else {
+            Alert.alert('Error', uploadResult.error || 'Failed to upload image');
+          }
+        } catch (error) {
+          console.error('Error uploading image:', error);
+          Alert.alert('Error', 'Failed to upload image. Please try again.');
+        }
+      }
+    } catch (error) {
+      console.error('Error with image picker:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
   
   return (
     <SafeAreaView style={styles.container}>
@@ -120,15 +176,24 @@ const EditProfileScreen = ({ navigation }) => {
       >
         <ScrollView contentContainerStyle={styles.scrollContainer}>
           <View style={styles.header}>
-            <View style={styles.avatarContainer}>
+            <TouchableOpacity 
+              style={styles.avatarContainer}
+              onPress={handleImagePick}
+              disabled={uploadingImage}
+            >
               <Avatar.Image
                 size={120}
                 source={user?.photoURL ? { uri: user.photoURL } : require('../../../assets/icon.png')}
               />
-            </View>
+              {uploadingImage && (
+                <View style={styles.uploadingOverlay}>
+                  <ActivityIndicator size="large" color="#FFFFFF" />
+                </View>
+              )}
+            </TouchableOpacity>
             
             <Text style={styles.note}>
-              Profile picture uploads are temporarily disabled
+              Tap on the profile picture to change it
             </Text>
           </View>
           
@@ -239,6 +304,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    width: 128,
+    height: 128,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   note: {
     marginTop: 8,
@@ -258,6 +327,17 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     borderColor: '#9C27B0',
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

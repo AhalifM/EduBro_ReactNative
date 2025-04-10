@@ -10,6 +10,7 @@ import { CommonActions } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
+import { Image } from 'react-native';
 
 const TutorProfileScreen = ({ navigation }) => {
   const { user, signOut, refreshUserData } = useAuth();
@@ -272,10 +273,9 @@ const TutorProfileScreen = ({ navigation }) => {
           >
             <View style={styles.headerContent}>
               <View style={styles.avatarContainer}>
-                <Avatar.Image
-                  size={100}
+                <Image
                   source={getProfileImageSource()}
-                  style={styles.avatar}
+                  style={styles.avatarImage}
                   onError={() => setAvatarError(true)}
                 />
               </View>
@@ -378,27 +378,23 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   avatarContainer: {
-    marginBottom: 16,
+    width: 120,
+    height: 120,
     borderRadius: 60,
-    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 15,
+    alignSelf: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    shadowColor: "rgba(0,0,0,0.2)",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.5,
-    shadowRadius: 5,
   },
-  avatar: {
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     borderWidth: 4,
     borderColor: '#FFFFFF',
     backgroundColor: '#FFFFFF',
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
   },
   name: {
     fontSize: 26,

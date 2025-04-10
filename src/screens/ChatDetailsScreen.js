@@ -12,7 +12,7 @@ import {
   Keyboard,
   Alert
 } from 'react-native';
-import { Appbar, Badge, useTheme, Menu, Divider } from 'react-native-paper';
+import { Appbar, Badge, useTheme, Menu, Divider, Avatar } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { 
@@ -27,6 +27,7 @@ import { auth } from '../firebase/config';
 import { format } from 'date-fns';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { isValidImageUrl } from '../utils/auth';
 
 const ChatDetailsScreen = ({ route, navigation }) => {
   const { chatId, sessionDetails = {}, otherUserName, otherUserId } = route.params || {};
@@ -38,6 +39,7 @@ const ChatDetailsScreen = ({ route, navigation }) => {
   const [typingTimeout, setTypingTimeout] = useState(null);
   const [chatData, setChatData] = useState(null);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [otherUserPhoto, setOtherUserPhoto] = useState(null);
   const flatListRef = useRef(null);
   const theme = useTheme() || { colors: { primary: '#9C27B0', secondary: '#E91E63', error: '#F44336' } };
   
@@ -48,11 +50,27 @@ const ChatDetailsScreen = ({ route, navigation }) => {
       const chatSnap = await getDoc(chatRef);
       if (chatSnap.exists()) {
         setChatData(chatSnap.data());
+        
+        // Get other user's photo from chat data
+        const data = chatSnap.data();
+        const isCurrentUserStudent = auth.currentUser.uid === data.participants.studentId;
+        const photoFromChat = isCurrentUserStudent ? data.participants.tutorPhoto : data.participants.studentPhoto;
+        
+        if (photoFromChat) {
+          setOtherUserPhoto(photoFromChat);
+        } else {
+          // If no photo in chat data, fetch from user document
+          const otherUserRef = doc(db, 'users', otherUserId);
+          const otherUserSnap = await getDoc(otherUserRef);
+          if (otherUserSnap.exists() && otherUserSnap.data().photoURL) {
+            setOtherUserPhoto(otherUserSnap.data().photoURL);
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching chat data:', error);
     }
-  }, [chatId]);
+  }, [chatId, otherUserId]);
   
   // Load messages and set up real-time listener
   useFocusEffect(
@@ -470,6 +488,16 @@ const ChatDetailsScreen = ({ route, navigation }) => {
       textAlign: 'center',
       marginTop: 8,
     },
+    userInfo: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    avatar: {
+      marginRight: 10,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.3)',
+    },
   });
   
   return (
@@ -480,17 +508,34 @@ const ChatDetailsScreen = ({ route, navigation }) => {
     >
       <Appbar.Header style={styles.header}>
         <Appbar.BackAction color="#fff" onPress={() => navigation.goBack()} />
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>{otherUserName}</Text>
-          <View style={styles.sessionBadge}>
-            <Text style={[
-              styles.sessionStatus,
-              { color: getStatusColor(sessionDetails?.status) }
-            ]}>
-              {sessionDetails?.status 
-                ? sessionDetails.status.charAt(0).toUpperCase() + sessionDetails.status.slice(1) 
-                : 'Unknown'}
-            </Text>
+        <View style={styles.userInfo}>
+          {otherUserPhoto && isValidImageUrl(otherUserPhoto) ? (
+            <Avatar.Image 
+              size={40} 
+              source={{ uri: otherUserPhoto }} 
+              style={styles.avatar}
+            />
+          ) : (
+            <Avatar.Text 
+              size={40} 
+              label={otherUserName.charAt(0).toUpperCase()} 
+              backgroundColor="rgba(255,255,255,0.3)"
+              color="#fff"
+              style={styles.avatar}
+            />
+          )}
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>{otherUserName}</Text>
+            <View style={styles.sessionBadge}>
+              <Text style={[
+                styles.sessionStatus,
+                { color: getStatusColor(sessionDetails?.status) }
+              ]}>
+                {sessionDetails?.status 
+                  ? sessionDetails.status.charAt(0).toUpperCase() + sessionDetails.status.slice(1) 
+                  : 'Unknown'}
+              </Text>
+            </View>
           </View>
         </View>
         
