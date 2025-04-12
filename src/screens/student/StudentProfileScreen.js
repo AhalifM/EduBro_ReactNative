@@ -50,11 +50,13 @@ const StudentProfileScreen = ({ navigation }) => {
           setCourseCount(uniqueSubjects.size);
         }
       } else {
-        // If no user data, redirect to Auth navigator
-        const rootNavigation = navigation.getParent();
-        if (rootNavigation) {
-          rootNavigation.navigate('Auth');
-        }
+        // If no user data, redirect to Auth navigator using CommonActions
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: 'Auth' }],
+          })
+        );
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -84,12 +86,13 @@ const StudentProfileScreen = ({ navigation }) => {
     try {
       await logoutUser();
       
-      // Get the root navigation
-      const rootNavigation = navigation.getParent();
-      if (rootNavigation) {
-        // Navigate to Auth stack
-        rootNavigation.navigate('Auth');
-      }
+      // Use CommonActions.reset instead of getParent
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'Auth' }],
+        })
+      );
     } catch (error) {
       console.error('Error logging out:', error);
     }
@@ -229,6 +232,16 @@ const StudentProfileScreen = ({ navigation }) => {
             </View>
           </Card.Content>
         </Card>
+
+        <Button
+          mode="outlined"
+          style={styles.reportIssueButton}
+          icon="alert-circle-outline"
+          onPress={() => navigation.navigate('ReportIssue')}
+          textColor="#9C27B0"
+        >
+          Report an Issue
+        </Button>
 
         <Button
           mode="outlined"
@@ -404,11 +417,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     elevation: 2,
   },
-  logoutButton: {
-    margin: 16,
+  reportIssueButton: {
+    marginHorizontal: 16,
     marginTop: 8,
-    marginBottom: 30,
+    marginBottom: 8,
+    borderRadius: 8,
+    borderColor: '#9C27B0',
+  },
+  logoutButton: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 16,
     borderColor: '#F44336',
+    borderRadius: 8,
   },
 });
 

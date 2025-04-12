@@ -339,15 +339,27 @@ const TutorProfileScreen = ({ navigation }) => {
 
         {upcomingSessionsSection}
 
-        <Button 
-          mode="outlined" 
-          style={styles.logoutButton}
-          textColor="#F43F5E"
-          icon="logout-variant"
-          onPress={handleLogout}
-        >
-          Logout
-        </Button>
+        <View style={styles.actionsContainer}>
+          <Button
+            mode="outlined"
+            style={styles.reportIssueButton}
+            icon="alert-circle-outline"
+            onPress={() => navigation.navigate('ReportIssue')}
+            textColor="#9C27B0"
+          >
+            Report an Issue
+          </Button>
+          
+          <Button
+            mode="outlined"
+            icon="logout-variant"
+            style={styles.logoutButton}
+            textColor="#F44336"
+            onPress={handleLogout}
+          >
+            Logout
+          </Button>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -535,11 +547,19 @@ const styles = StyleSheet.create({
     marginTop: 12,
     elevation: 2,
   },
+  actionsContainer: {
+    padding: 16,
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
+  reportIssueButton: {
+    marginBottom: 8,
+    borderColor: '#9C27B0',
+    borderRadius: 8,
+  },
   logoutButton: {
-    margin: 16,
-    marginTop: 8,
-    marginBottom: 30,
-    borderColor: '#F43F5E',
+    borderColor: '#F44336',
+    borderRadius: 8,
   },
   loadingContainer: {
     flex: 1,

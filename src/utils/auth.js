@@ -38,6 +38,9 @@ export const registerUser = async (email, password, fullName, role, additionalDa
       userData.isVerified = false; // Tutors need admin verification
       userData.rating = 0; // Initial rating
       userData.totalReviews = 0;
+    } else if (role === 'admin') {
+      userData.isAdmin = true;
+      userData.adminPrivileges = additionalData.adminPrivileges || ['users', 'tutors', 'issues', 'subjects'];
     }
     
     // Save user data in Firestore

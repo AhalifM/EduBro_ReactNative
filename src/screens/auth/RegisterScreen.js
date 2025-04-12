@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { TextInput, Button, Text, RadioButton, useTheme, Chip } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { registerUser } from '../../utils/auth';
 import { getAllSubjects } from '../../utils/tutorUtils';
+import { MaterialIcons } from '@expo/vector-icons';
 
 const RegisterScreen = ({ navigation }) => {
   const [fullName, setFullName] = useState('');
@@ -25,6 +26,8 @@ const RegisterScreen = ({ navigation }) => {
   const [availableSubjects, setAvailableSubjects] = useState([]);
   const [selectedSubjects, setSelectedSubjects] = useState([]);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
+  const [adminModeEnabled, setAdminModeEnabled] = useState(false);
+  const [adminTapCount, setAdminTapCount] = useState(0);
 
   const theme = useTheme();
 
@@ -96,6 +99,24 @@ const RegisterScreen = ({ navigation }) => {
     } else {
       setSelectedSubjects([...selectedSubjects, subject]);
     }
+  };
+
+  const handleAdminTap = () => {
+    // Increment tap count
+    const newCount = adminTapCount + 1;
+    setAdminTapCount(newCount);
+    
+    // Enable admin mode after 5 taps
+    if (newCount >= 5 && !adminModeEnabled) {
+      setAdminModeEnabled(true);
+      Alert.alert('Developer Mode', 'Admin role selection is now enabled.');
+      setAdminTapCount(0);
+    }
+    
+    // Reset counter after 3 seconds of inactivity
+    setTimeout(() => {
+      setAdminTapCount(0);
+    }, 3000);
   };
 
   const handleRegister = async () => {
@@ -187,46 +208,75 @@ const RegisterScreen = ({ navigation }) => {
           }
         />
         
-        <Text style={styles.roleText}>Register as:</Text>
-        
-        <View style={styles.roleOptions}>
-          <TouchableOpacity 
+        <Text style={styles.sectionTitle}>Select Your Role</Text>
+        <View style={styles.roleContainer}>
+          <TouchableOpacity
             style={[
-              styles.roleOption, 
-              role === 'student' && { 
-                backgroundColor: theme.colors.primaryContainer,
-                borderColor: theme.colors.primary
-              }
+              styles.roleOption,
+              role === 'student' && styles.roleOptionSelected
             ]}
             onPress={() => setRole('student')}
           >
-            <RadioButton
-              value="student"
-              status={role === 'student' ? 'checked' : 'unchecked'}
-              onPress={() => setRole('student')}
-              color={theme.colors.primary}
+            <MaterialIcons
+              name="school"
+              size={24}
+              color={role === 'student' ? '#FFFFFF' : '#9C27B0'}
             />
-            <Text style={styles.roleOptionText}>Student</Text>
+            <Text
+              style={[
+                styles.roleText,
+                role === 'student' && styles.roleTextSelected
+              ]}
+            >
+              Student
+            </Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[
-              styles.roleOption, 
-              role === 'tutor' && { 
-                backgroundColor: theme.colors.primaryContainer,
-                borderColor: theme.colors.primary
-              }
+              styles.roleOption,
+              role === 'tutor' && styles.roleOptionSelected
             ]}
             onPress={() => setRole('tutor')}
           >
-            <RadioButton
-              value="tutor"
-              status={role === 'tutor' ? 'checked' : 'unchecked'}
-              onPress={() => setRole('tutor')}
-              color={theme.colors.primary}
+            <MaterialIcons
+              name="assignment"
+              size={24}
+              color={role === 'tutor' ? '#FFFFFF' : '#9C27B0'}
             />
-            <Text style={styles.roleOptionText}>Tutor</Text>
+            <Text
+              style={[
+                styles.roleText,
+                role === 'tutor' && styles.roleTextSelected
+              ]}
+            >
+              Tutor
+            </Text>
           </TouchableOpacity>
+          
+          {adminModeEnabled && (
+            <TouchableOpacity
+              style={[
+                styles.roleOption,
+                role === 'admin' && styles.roleOptionSelected
+              ]}
+              onPress={() => setRole('admin')}
+            >
+              <MaterialIcons
+                name="admin-panel-settings"
+                size={24}
+                color={role === 'admin' ? '#FFFFFF' : '#9C27B0'}
+              />
+              <Text
+                style={[
+                  styles.roleText,
+                  role === 'admin' && styles.roleTextSelected
+                ]}
+              >
+                Admin
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
         
         {showTutorFields && (
@@ -295,6 +345,13 @@ const RegisterScreen = ({ navigation }) => {
           </View>
         )}
         
+        <Text 
+          style={styles.appVersion}
+          onPress={handleAdminTap}
+        >
+          v1.0.0
+        </Text>
+        
         <Button
           mode="contained"
           onPress={handleRegister}
@@ -334,12 +391,13 @@ const styles = StyleSheet.create({
   input: {
     marginBottom: 16,
   },
-  roleText: {
-    fontSize: 16,
-    marginTop: 10,
-    marginBottom: 10,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    color: '#333',
   },
-  roleOptions: {
+  roleContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
@@ -352,11 +410,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#ccc',
-    width: '48%',
+    width: '30%',
   },
-  roleOptionText: {
+  roleOptionSelected: {
+    backgroundColor: '#9C27B0',
+    borderColor: '#9C27B0',
+  },
+  roleText: {
     marginLeft: 8,
     fontSize: 16,
+  },
+  roleTextSelected: {
+    color: '#FFFFFF',
   },
   button: {
     marginVertical: 16,
@@ -380,12 +445,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 16,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#333',
-  },
   subjectsTitle: {
     fontSize: 16,
     marginTop: 10,
@@ -404,6 +463,12 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     color: '#666',
     fontStyle: 'italic',
+  },
+  appVersion: {
+    textAlign: 'center',
+    marginTop: 20,
+    color: '#999',
+    fontSize: 12,
   },
 });
 

@@ -5,9 +5,10 @@ import { MaterialIcons } from '@expo/vector-icons';
 
 // Import screens
 import AdminProfileScreen from '../screens/admin/AdminProfileScreen';
+import ReportedIssuesScreen from '../screens/admin/ReportedIssuesScreen';
+import ManageUsersScreen from '../screens/admin/ManageUsersScreen';
 
 // Create placeholder screens for future development
-const UsersScreen = () => <AdminProfileScreen />;
 const TutorApplicationsScreen = () => <AdminProfileScreen />;
 const AnalyticsScreen = () => <AdminProfileScreen />;
 
@@ -31,6 +32,8 @@ const AdminNavigator = () => {
             iconName = 'assignment';
           } else if (route.name === 'Analytics') {
             iconName = 'insights';
+          } else if (route.name === 'Issues') {
+            iconName = 'report-problem';
           }
 
           return <MaterialIcons name={iconName} size={size} color={color} />;
@@ -43,13 +46,18 @@ const AdminNavigator = () => {
     >
       <Tab.Screen 
         name="Users" 
-        component={UsersScreen} 
+        component={ManageUsersScreen} 
         options={{ title: 'Manage Users' }}
       />
       <Tab.Screen 
         name="Applications" 
         component={TutorApplicationsScreen} 
         options={{ title: 'Applications' }}
+      />
+      <Tab.Screen 
+        name="Issues" 
+        component={ReportedIssuesScreen} 
+        options={{ title: 'Reported Issues' }}
       />
       <Tab.Screen 
         name="Analytics" 

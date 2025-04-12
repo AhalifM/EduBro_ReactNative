@@ -16,6 +16,7 @@ import ChatDetailsScreen from '../screens/ChatDetailsScreen';
 import ManageSessionsScreen from '../screens/tutor/ManageSessionsScreen';
 import SessionRequestsScreen from '../screens/tutor/SessionRequestsScreen';
 import TutorIncomeScreen from '../screens/tutor/TutorIncomeScreen';
+import ReportIssueScreen from '../screens/common/ReportIssueScreen';
 
 // Create placeholder screens for missing features
 const StudentsScreen = () => (
@@ -127,6 +128,11 @@ const ProfileStack = () => {
         name="EditProfile" 
         component={EditProfileScreen} 
         options={{ headerTitle: 'Edit Profile' }}
+      />
+      <Stack.Screen 
+        name="ReportIssue" 
+        component={ReportIssueScreen} 
+        options={{ headerTitle: 'Report an Issue' }}
       />
     </Stack.Navigator>
   );
