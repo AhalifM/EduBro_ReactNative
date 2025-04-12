@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { TextInput, Button, Text, RadioButton, useTheme, Chip } from 'react-native-paper';
+import { TextInput, Button, Text, RadioButton, useTheme, Chip, Menu, HelperText } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { registerUser } from '../../utils/auth';
 import { getAllSubjects } from '../../utils/tutorUtils';
@@ -23,6 +23,16 @@ const RegisterScreen = ({ navigation }) => {
   const [hourlyRate, setHourlyRate] = useState('');
   const [experience, setExperience] = useState('');
   const [education, setEducation] = useState('');
+  // GPA dropdown states
+  const [gpaWhole, setGpaWhole] = useState('3');
+  const [gpaDecimal1, setGpaDecimal1] = useState('5');
+  const [gpaDecimal2, setGpaDecimal2] = useState('0');
+  const [showGpaDropdown, setShowGpaDropdown] = useState(false);
+  // Menu visibility states
+  const [gpaWholeMenuVisible, setGpaWholeMenuVisible] = useState(false);
+  const [gpaDecimal1MenuVisible, setGpaDecimal1MenuVisible] = useState(false);
+  const [gpaDecimal2MenuVisible, setGpaDecimal2MenuVisible] = useState(false);
+  
   const [availableSubjects, setAvailableSubjects] = useState([]);
   const [selectedSubjects, setSelectedSubjects] = useState([]);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
@@ -34,6 +44,7 @@ const RegisterScreen = ({ navigation }) => {
   // Show tutor fields when role is tutor
   useEffect(() => {
     setShowTutorFields(role === 'tutor');
+    setShowGpaDropdown(role === 'tutor');
   }, [role]);
   
   // Fetch available subjects when tutor role is selected
@@ -88,6 +99,13 @@ const RegisterScreen = ({ navigation }) => {
         setError('Please select at least one subject');
         return false;
       }
+      
+      // Validate minimum GPA requirement for tutors
+      const gpa = parseFloat(`${gpaWhole}.${gpaDecimal1}${gpaDecimal2}`);
+      if (gpa < 3.50) {
+        setError('Tutor accounts require a minimum GPA of 3.50');
+        return false;
+      }
     }
     
     return true;
@@ -119,6 +137,21 @@ const RegisterScreen = ({ navigation }) => {
     }, 3000);
   };
 
+  const openGpaWholeMenu = () => setGpaWholeMenuVisible(true);
+  const closeGpaWholeMenu = () => setGpaWholeMenuVisible(false);
+  
+  const openGpaDecimal1Menu = () => setGpaDecimal1MenuVisible(true);
+  const closeGpaDecimal1Menu = () => setGpaDecimal1MenuVisible(false);
+  
+  const openGpaDecimal2Menu = () => setGpaDecimal2MenuVisible(true);
+  const closeGpaDecimal2Menu = () => setGpaDecimal2MenuVisible(false);
+  
+  // Check if GPA meets minimum requirement
+  const isGpaValid = () => {
+    const gpa = parseFloat(`${gpaWhole}.${gpaDecimal1}${gpaDecimal2}`);
+    return gpa >= 3.50;
+  };
+
   const handleRegister = async () => {
     if (!validateForm()) return;
     
@@ -129,11 +162,14 @@ const RegisterScreen = ({ navigation }) => {
       let additionalData = {};
       
       if (role === 'tutor') {
+        // Format GPA from the dropdown selections
+        const gpa = `${gpaWhole}.${gpaDecimal1}${gpaDecimal2}`;
+        
         additionalData = {
           phoneNumber,
           hourlyRate: parseFloat(hourlyRate),
           subjects: selectedSubjects,
-          experience,
+          experience: role === 'tutor' ? gpa : experience,
           education
         };
       }
@@ -312,16 +348,130 @@ const RegisterScreen = ({ navigation }) => {
               placeholder="e.g., Bachelor's in Economics"
             />
             
-            <TextInput
-              label="Experience (Optional)"
-              value={experience}
-              onChangeText={setExperience}
-              style={styles.input}
-              mode="outlined"
-              multiline
-              numberOfLines={3}
-              placeholder="Briefly describe your tutoring experience"
-            />
+            {!showGpaDropdown ? (
+              <TextInput
+                label="Experience (Optional)"
+                value={experience}
+                onChangeText={setExperience}
+                style={styles.input}
+                mode="outlined"
+                multiline
+                numberOfLines={3}
+                placeholder="Briefly describe your tutoring experience"
+              />
+            ) : (
+              <View style={[
+                styles.gpaSection, 
+                !isGpaValid() && styles.invalidGpaSection
+              ]}>
+                <Text style={styles.gpaTitle}>Current GPA</Text>
+                <View style={styles.gpaContainer}>
+                  {/* First dropdown for whole number part of GPA */}
+                  <View style={styles.gpaInputContainer}>
+                    <Menu
+                      visible={gpaWholeMenuVisible}
+                      onDismiss={closeGpaWholeMenu}
+                      anchor={
+                        <TouchableOpacity onPress={openGpaWholeMenu}>
+                          <View pointerEvents="none">
+                            <TextInput
+                              value={gpaWhole}
+                              mode="outlined"
+                              style={styles.gpaInput}
+                              right={<TextInput.Icon icon="menu-down" />}
+                              editable={false}
+                              error={!isGpaValid()}
+                            />
+                          </View>
+                        </TouchableOpacity>
+                      }
+                    >
+                      {[1, 2, 3, 4].map((value) => (
+                        <Menu.Item
+                          key={`whole-${value}`}
+                          onPress={() => {
+                            setGpaWhole(value.toString());
+                            closeGpaWholeMenu();
+                          }}
+                          title={value.toString()}
+                        />
+                      ))}
+                    </Menu>
+                  </View>
+
+                  <Text style={styles.gpaDot}>.</Text>
+                  
+                  {/* Second dropdown for first decimal place */}
+                  <View style={styles.gpaInputContainer}>
+                    <Menu
+                      visible={gpaDecimal1MenuVisible}
+                      onDismiss={closeGpaDecimal1Menu}
+                      anchor={
+                        <TouchableOpacity onPress={openGpaDecimal1Menu}>
+                          <View pointerEvents="none">
+                            <TextInput
+                              value={gpaDecimal1}
+                              mode="outlined"
+                              style={styles.gpaInput}
+                              right={<TextInput.Icon icon="menu-down" />}
+                              editable={false}
+                              error={!isGpaValid()}
+                            />
+                          </View>
+                        </TouchableOpacity>
+                      }
+                    >
+                      {[...Array(10)].map((_, i) => (
+                        <Menu.Item
+                          key={`first-${i}`}
+                          onPress={() => {
+                            setGpaDecimal1(i.toString());
+                            closeGpaDecimal1Menu();
+                          }}
+                          title={i.toString()}
+                        />
+                      ))}
+                    </Menu>
+                  </View>
+                  
+                  {/* Third dropdown for second decimal place */}
+                  <View style={styles.gpaInputContainer}>
+                    <Menu
+                      visible={gpaDecimal2MenuVisible}
+                      onDismiss={closeGpaDecimal2Menu}
+                      anchor={
+                        <TouchableOpacity onPress={openGpaDecimal2Menu}>
+                          <View pointerEvents="none">
+                            <TextInput
+                              value={gpaDecimal2}
+                              mode="outlined"
+                              style={styles.gpaInput}
+                              right={<TextInput.Icon icon="menu-down" />}
+                              editable={false}
+                              error={!isGpaValid()}
+                            />
+                          </View>
+                        </TouchableOpacity>
+                      }
+                    >
+                      {[...Array(10)].map((_, i) => (
+                        <Menu.Item
+                          key={`second-${i}`}
+                          onPress={() => {
+                            setGpaDecimal2(i.toString());
+                            closeGpaDecimal2Menu();
+                          }}
+                          title={i.toString()}
+                        />
+                      ))}
+                    </Menu>
+                  </View>
+                </View>
+                <HelperText type={isGpaValid() ? "info" : "error"} style={styles.gpaHelperText}>
+                  Enter your GPA in the format X.YZ (e.g., 3.75). Minimum GPA of 3.50 required.
+                </HelperText>
+              </View>
+            )}
             
             <Text style={styles.subjectsTitle}>Subjects You Can Teach:</Text>
             
@@ -463,6 +613,47 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     color: '#666',
     fontStyle: 'italic',
+  },
+  gpaContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  gpaSection: {
+    backgroundColor: '#f9f9f9',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  invalidGpaSection: {
+    backgroundColor: '#fff0f0',
+    borderColor: '#ffdddd',
+    borderWidth: 1,
+  },
+  gpaTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#333',
+  },
+  gpaInputContainer: {
+    width: '28%',
+  },
+  gpaInput: {
+    height: 55,
+    fontSize: 16,
+    backgroundColor: '#fff',
+  },
+  gpaDot: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginHorizontal: 4,
+  },
+  gpaHelperText: {
+    marginTop: 4,
+    fontSize: 12,
+    textAlign: 'center',
   },
   appVersion: {
     textAlign: 'center',
