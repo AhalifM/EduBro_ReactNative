@@ -6,7 +6,10 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",
@@ -39,7 +42,10 @@
     "react-native-svg": "^15.11.2"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.0"
+    "@babel/core": "^7.20.0",
+    "@babel/plugin-transform-modules-commonjs": "^7.26.3",
+    "babel-jest": "^29.7.0",
+    "jest-react-native": "^18.0.0"
   },
   "private": true
 }
