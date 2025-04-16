@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   tutorCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    marginBottom: 16,
+    marginBottom: 50,
     padding: 16,
     elevation: 2,
     shadowColor: '#1F2937',
