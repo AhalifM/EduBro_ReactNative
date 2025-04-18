@@ -535,8 +535,8 @@ const styles = StyleSheet.create({
   tutorCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    marginBottom: 50,
-    padding: 16,
+    marginBottom: 10,
+    padding: 10,
     elevation: 2,
     shadowColor: '#1F2937',
     shadowOffset: { width: 0, height: 2 },
@@ -549,6 +549,8 @@ const styles = StyleSheet.create({
   },
   tutorAvatarContainer: {
     borderRadius: 40,
+    borderWidth: 2,
+    borderColor: '#9C27B0',
     overflow: 'hidden',
     marginRight: 16,
     backgroundColor: '#F3E5F5',
