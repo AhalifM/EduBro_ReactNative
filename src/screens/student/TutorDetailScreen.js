@@ -26,7 +26,7 @@ const TutorDetailScreen = ({ route, navigation }) => {
   const [markedDates, setMarkedDates] = useState({});
   const [selectedDate, setSelectedDate] = useState('');
   const [availableSlots, setAvailableSlots] = useState([]);
-  const [selectedSlot, setSelectedSlot] = useState('');
+  const [selectedSlots, setSelectedSlots] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [isBookingModalVisible, setIsBookingModalVisible] = useState(false);
   const [isConfirmingBooking, setIsConfirmingBooking] = useState(false);
@@ -126,12 +126,45 @@ const TutorDetailScreen = ({ route, navigation }) => {
     }
     
     // Clear previously selected slot
-    setSelectedSlot('');
+    setSelectedSlots([]);
   };
   
   const handleSlotSelect = (slot) => {
     console.log('Selected slot:', JSON.stringify(slot));
-    setSelectedSlot(slot.startTime);
+    setSelectedSlots(prevSlots => {
+      // Check if slot is already selected
+      const isSelected = prevSlots.some(s => s.startTime === slot.startTime);
+      
+      if (isSelected) {
+        // Remove slot if already selected
+        return prevSlots.filter(s => s.startTime !== slot.startTime);
+      } else {
+        // Add slot if not selected and is consecutive with existing slots
+        const newSlots = [...prevSlots, slot].sort((a, b) => {
+          const timeA = a.startTime.split(':').map(Number);
+          const timeB = b.startTime.split(':').map(Number);
+          return (timeA[0] * 60 + timeA[1]) - (timeB[0] * 60 + timeB[1]);
+        });
+
+        // Verify if slots are consecutive
+        for (let i = 1; i < newSlots.length; i++) {
+          const prevTime = newSlots[i-1].startTime.split(':').map(Number);
+          const currTime = newSlots[i].startTime.split(':').map(Number);
+          const prevTotalMinutes = prevTime[0] * 60 + prevTime[1];
+          const currTotalMinutes = currTime[0] * 60 + currTime[1];
+          
+          if (currTotalMinutes - prevTotalMinutes !== 60) {
+            Alert.alert(
+              'Invalid Selection',
+              'Please select consecutive time slots only.'
+            );
+            return prevSlots;
+          }
+        }
+        
+        return newSlots;
+      }
+    });
   };
   
   const handleSubjectSelect = (subject) => {
@@ -144,8 +177,8 @@ const TutorDetailScreen = ({ route, navigation }) => {
       return;
     }
     
-    if (!selectedSlot) {
-      Alert.alert('Please select a time slot', 'You need to select a time slot to book a session.');
+    if (selectedSlots.length === 0) {
+      Alert.alert('Please select time slots', 'You need to select at least one time slot to book a session.');
       return;
     }
     
@@ -161,17 +194,26 @@ const TutorDetailScreen = ({ route, navigation }) => {
     try {
       setIsConfirmingBooking(true);
       
-      // Calculate end time (add 1 hour to start time)
-      const [startHour, startMinute] = selectedSlot.split(':').map(Number);
-      const endTime = `${String(startHour + 1).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`;
+      // Sort slots by time
+      const sortedSlots = [...selectedSlots].sort((a, b) => {
+        const timeA = a.startTime.split(':').map(Number);
+        const timeB = b.startTime.split(':').map(Number);
+        return (timeA[0] * 60 + timeA[1]) - (timeB[0] * 60 + timeB[1]);
+      });
+
+      // Get start time from first slot and calculate end time from last slot
+      const startTime = sortedSlots[0].startTime;
+      const [lastStartHour, lastStartMinute] = sortedSlots[sortedSlots.length - 1].startTime.split(':').map(Number);
+      const endTime = `${String(lastStartHour + 1).padStart(2, '0')}:${String(lastStartMinute).padStart(2, '0')}`;
       
       console.log('Booking session with data:', {
         tutorId: tutor.uid,
         studentId: user.uid,
         date: selectedDate,
-        startTime: selectedSlot,
+        startTime,
         endTime,
-        subject: selectedSubject
+        subject: selectedSubject,
+        numberOfHours: selectedSlots.length
       });
       
       // Book the session
@@ -179,21 +221,21 @@ const TutorDetailScreen = ({ route, navigation }) => {
         tutorId: tutor.uid,
         studentId: user.uid,
         date: selectedDate,
-        startTime: selectedSlot,
-        endTime: endTime,
+        startTime,
+        endTime,
         subject: selectedSubject,
         hourlyRate: tutor.hourlyRate || 0,
+        numberOfHours: selectedSlots.length,
         tutorName: tutor.fullName || tutor.displayName || `User ${tutor.uid.substring(0, 5)}`,
         studentName: user.fullName || user.displayName || `User ${user.uid.substring(0, 5)}`,
         tutorPhoneNumber: tutor.phoneNumber || 'Not provided'
       });
       
       if (bookingResult.success) {
-        // Process payment
-        const paymentResult = await processPayment(bookingResult.sessionId);
+        // Process payment with updated amount based on number of hours
+        const paymentResult = await processPayment(bookingResult.sessionId, selectedSlots.length);
         
         if (paymentResult.success) {
-          // Close modal and navigate back
           setIsBookingModalVisible(false);
           
           Alert.alert(
@@ -267,20 +309,20 @@ const TutorDetailScreen = ({ route, navigation }) => {
             ) : (
               <View style={styles.slotsGrid}>
                 {availableSlots
-                  .filter(slot => !slot.isBooked) // Only show slots that aren't booked
+                  .filter(slot => !slot.isBooked)
                   .map((slot, index) => (
                     <TouchableOpacity
                       key={index}
                       style={[
                         styles.timeSlotButton,
-                        selectedSlot === slot.startTime && styles.selectedTimeSlot
+                        selectedSlots.some(s => s.startTime === slot.startTime) && styles.selectedTimeSlot
                       ]}
                       onPress={() => handleSlotSelect(slot)}
                     >
                       <Text 
                         style={[
                           styles.timeSlotText,
-                          selectedSlot === slot.startTime && styles.selectedTimeSlotText
+                          selectedSlots.some(s => s.startTime === slot.startTime) && styles.selectedTimeSlotText
                         ]}
                       >
                         {slot.startTime}
@@ -326,10 +368,10 @@ const TutorDetailScreen = ({ route, navigation }) => {
         <TouchableOpacity
           style={[
             styles.bookButton,
-            (!selectedDate || !selectedSlot || !selectedSubject) && styles.disabledButton
+            (!selectedDate || selectedSlots.length === 0 || !selectedSubject) && styles.disabledButton
           ]}
           onPress={openBookingModal}
-          disabled={!selectedDate || !selectedSlot || !selectedSubject}
+          disabled={!selectedDate || selectedSlots.length === 0 || !selectedSubject}
         >
           <Text style={styles.bookButtonText}>Book Session</Text>
         </TouchableOpacity>
@@ -423,17 +465,27 @@ const TutorDetailScreen = ({ route, navigation }) => {
               
               <View style={styles.bookingDetailRow}>
                 <Text style={styles.bookingDetailLabel}>Time:</Text>
-                <Text style={styles.bookingDetailValue}>{selectedSlot} - {
-                  (() => {
-                    const [hour, minute] = selectedSlot.split(':').map(Number);
-                    return `${String(hour + 1).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-                  })()
-                }</Text>
+                <Text style={styles.bookingDetailValue}>
+                  {selectedSlots.length > 0 ? (
+                    `${selectedSlots[0].startTime} - ${
+                      (() => {
+                        const lastSlot = selectedSlots[selectedSlots.length - 1];
+                        const [hour, minute] = lastSlot.startTime.split(':').map(Number);
+                        return `${String(hour + 1).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+                      })()
+                    }`
+                  ) : 'No time slots selected'}
+                </Text>
+              </View>
+              
+              <View style={styles.bookingDetailRow}>
+                <Text style={styles.bookingDetailLabel}>Duration:</Text>
+                <Text style={styles.bookingDetailValue}>{selectedSlots.length} hour(s)</Text>
               </View>
               
               <View style={styles.bookingDetailRow}>
                 <Text style={styles.bookingDetailLabel}>Price:</Text>
-                <Text style={styles.bookingDetailValue}>${tutor.hourlyRate}</Text>
+                <Text style={styles.bookingDetailValue}>${tutor.hourlyRate * selectedSlots.length}</Text>
               </View>
             </View>
             

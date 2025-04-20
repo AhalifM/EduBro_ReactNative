@@ -17,6 +17,7 @@ import ManageSessionsScreen from '../screens/tutor/ManageSessionsScreen';
 import SessionRequestsScreen from '../screens/tutor/SessionRequestsScreen';
 import TutorIncomeScreen from '../screens/tutor/TutorIncomeScreen';
 import ReportIssueScreen from '../screens/common/ReportIssueScreen';
+import IssueDetailScreen from '../screens/common/IssueDetailScreen';
 
 // Create placeholder screens for missing features
 const StudentsScreen = () => (
@@ -133,6 +134,11 @@ const ProfileStack = () => {
         name="ReportIssue" 
         component={ReportIssueScreen} 
         options={{ headerTitle: 'Report an Issue' }}
+      />
+      <Stack.Screen 
+        name="IssueDetail" 
+        component={IssueDetailScreen} 
+        options={{ headerTitle: 'Issue Details' }}
       />
     </Stack.Navigator>
   );

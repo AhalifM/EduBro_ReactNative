@@ -15,6 +15,7 @@ import ChatDetailsScreen from '../screens/ChatDetailsScreen';
 import ApplyTutorScreen from '../screens/student/ApplyTutorScreen';
 import EditProfileScreen from '../screens/student/EditProfileScreen';
 import ReportIssueScreen from '../screens/common/ReportIssueScreen';
+import IssueDetailScreen from '../screens/common/IssueDetailScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -139,6 +140,11 @@ const ProfileStack = () => {
           title: 'Report an Issue',
           headerTitleAlign: 'center'
         }}
+      />
+      <Stack.Screen 
+        name="IssueDetail" 
+        component={IssueDetailScreen} 
+        options={{ headerTitle: 'Issue Details' }}
       />
     </Stack.Navigator>
   );

@@ -7,10 +7,10 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AdminProfileScreen from '../screens/admin/AdminProfileScreen';
 import ReportedIssuesScreen from '../screens/admin/ReportedIssuesScreen';
 import ManageUsersScreen from '../screens/admin/ManageUsersScreen';
+import AnalyticsScreen from '../screens/admin/AnalyticsScreen';
 
 // Create placeholder screens for future development
 const TutorApplicationsScreen = () => <AdminProfileScreen />;
-const AnalyticsScreen = () => <AdminProfileScreen />;
 
 const Tab = createBottomTabNavigator();
 
