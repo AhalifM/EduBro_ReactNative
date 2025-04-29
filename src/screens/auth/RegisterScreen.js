@@ -5,6 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { registerUser } from '../../utils/auth';
 import { getAllSubjects } from '../../utils/tutorUtils';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
+import { getStorage, ref, uploadBytes } from 'firebase/storage';
 
 const RegisterScreen = ({ navigation }) => {
   const [fullName, setFullName] = useState('');
@@ -32,6 +34,8 @@ const RegisterScreen = ({ navigation }) => {
   const [gpaWholeMenuVisible, setGpaWholeMenuVisible] = useState(false);
   const [gpaDecimal1MenuVisible, setGpaDecimal1MenuVisible] = useState(false);
   const [gpaDecimal2MenuVisible, setGpaDecimal2MenuVisible] = useState(false);
+  // File upload state for examination results
+  const [examResultFile, setExamResultFile] = useState(null);
   
   const [availableSubjects, setAvailableSubjects] = useState([]);
   const [selectedSubjects, setSelectedSubjects] = useState([]);
@@ -106,6 +110,12 @@ const RegisterScreen = ({ navigation }) => {
         setError('Tutor accounts require a minimum GPA of 3.50');
         return false;
       }
+      
+      // Validate that an examination result file is uploaded
+      if (!examResultFile) {
+        setError('Please upload your examination result PDF');
+        return false;
+      }
     }
     
     return true;
@@ -160,6 +170,7 @@ const RegisterScreen = ({ navigation }) => {
     
     try {
       let additionalData = {};
+      let examResultUrl = '';
       
       if (role === 'tutor') {
         // Format GPA from the dropdown selections
@@ -170,11 +181,27 @@ const RegisterScreen = ({ navigation }) => {
           hourlyRate: parseFloat(hourlyRate),
           subjects: selectedSubjects,
           experience: role === 'tutor' ? gpa : experience,
-          education
+          education,
+          examResultUrl: '' // Initially empty, will update after upload
         };
       }
       
       const result = await registerUser(email, password, fullName, role, additionalData);
+      
+      if (result.success && role === 'tutor' && examResultFile) {
+        // Upload file after successful registration
+        console.log('User registered successfully, uploading file now:', examResultFile.name);
+        const storage = getStorage();
+        const userId = result.user?.uid || email; // Use UID if available, fallback to email
+        console.log('Using userId for upload:', userId);
+        const fileRef = ref(storage, `exam_results/${userId}/${examResultFile.name}`);
+        const response = await fetch(examResultFile.uri);
+        const blob = await response.blob();
+        await uploadBytes(fileRef, blob);
+        examResultUrl = `exam_results/${userId}/${examResultFile.name}`;
+        console.log('File uploaded successfully to:', examResultUrl);
+        // Optionally update user data with examResultUrl if needed
+      }
       
       if (result.success) {
         navigation.navigate('Login', { message: 'Registration successful! Please log in.' });
@@ -186,6 +213,29 @@ const RegisterScreen = ({ navigation }) => {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Function to handle file selection for examination results
+  const pickExamResult = async () => {
+    console.log('File picker button pressed');
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
+      });
+      
+      console.log('Document picker result:', result);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setExamResultFile(result.assets[0]);
+        console.log('File selected successfully:', result.assets[0].name);
+      } else {
+        console.log('Document picker cancelled or failed');
+        setError('File selection was cancelled or failed.');
+      }
+    } catch (err) {
+      console.error('Error picking document:', err);
+      setError('Failed to pick document. Please try again.');
     }
   };
 
@@ -473,6 +523,22 @@ const RegisterScreen = ({ navigation }) => {
               </View>
             )}
             
+            {/* File upload for examination results */}
+            <View style={styles.fileUploadContainer}>
+              <Text style={styles.fileUploadLabel}>Examination Result (PDF)</Text>
+              <Button
+                mode="contained"
+                onPress={pickExamResult}
+                style={styles.uploadButton}
+                icon="upload"
+              >
+                {examResultFile ? 'File Selected' : 'Upload PDF'}
+              </Button>
+              {examResultFile && (
+                <Text style={styles.selectedFileText}>{examResultFile.name}</Text>
+              )}
+            </View>
+            
             <Text style={styles.subjectsTitle}>Subjects You Can Teach:</Text>
             
             {loadingSubjects ? (
@@ -660,6 +726,24 @@ const styles = StyleSheet.create({
     marginTop: 20,
     color: '#999',
     fontSize: 12,
+  },
+  fileUploadContainer: {
+    marginTop: 10,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+  },
+  fileUploadLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  uploadButton: {
+    marginBottom: 8,
+  },
+  selectedFileText: {
+    color: '#666',
   },
 });
 
