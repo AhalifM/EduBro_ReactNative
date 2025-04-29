@@ -1,25 +1,29 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, FlatList, Alert, RefreshControl, TouchableOpacity, Dimensions, ScrollView } from 'react-native';
-import { Text, Card, Button, Chip, Divider, Searchbar, IconButton, Menu, ActivityIndicator, Modal, Portal, Title, Badge, Avatar, TextInput } from 'react-native-paper';
+import { View, StyleSheet, FlatList, Alert, RefreshControl, TouchableOpacity, Dimensions, ScrollView, StatusBar } from 'react-native';
+import { Text, Card, Button, Chip, Divider, Searchbar, IconButton, Menu, ActivityIndicator, Modal, Portal, Title, Badge, Avatar, TextInput, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { db } from '../../firebase/config';
 import { collection, query, orderBy, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
+const THEME_COLOR = '#6200ee';
+const THEME_COLOR_LIGHT = '#bb86fc';
+
 const STATUS_COLORS = {
-  pending: '#FFC107', // Yellow
+  pending: '#FF9800', // Orange - more vibrant than yellow
   in_progress: '#2196F3', // Blue
   resolved: '#4CAF50', // Green
   rejected: '#F44336', // Red
 };
 
 const STATUS_ICONS = {
-  pending: 'clock-alert-outline',
+  pending: 'timer-sand',
   in_progress: 'progress-clock',
-  resolved: 'check-circle-outline',
-  rejected: 'cancel',
+  resolved: 'check-circle',
+  rejected: 'close-circle',
 };
 
 const ReportedIssuesScreen = () => {
@@ -221,106 +225,131 @@ const ReportedIssuesScreen = () => {
     const urgencyLevel = item.urgency || 'medium';
     const urgencyColors = {
       low: '#4CAF50',
-      medium: '#FFC107',
+      medium: '#FF9800',
       high: '#F44336'
+    };
+    
+    const urgencyIcons = {
+      low: 'flag-outline',
+      medium: 'flag-variant',
+      high: 'flag'
     };
 
     return (
-      <TouchableOpacity onPress={() => showIssueDetails(item)}>
-        <Card style={[styles.card, { borderLeftWidth: 5, borderLeftColor: STATUS_COLORS[item.status] }]} mode="outlined">
-          <Card.Content>
-            <View style={styles.headerRow}>
-              <View style={styles.titleContainer}>
-                <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-                <View style={styles.chipContainer}>
-                  <Chip 
-                    mode="flat" 
-                    style={[styles.statusChip, { backgroundColor: STATUS_COLORS[item.status] + '20' }]}
-                    textStyle={{ color: STATUS_COLORS[item.status], fontWeight: 'bold' }}
-                  >
-                    <MaterialIcons name={STATUS_ICONS[item.status]} size={14} color={STATUS_COLORS[item.status]} /> 
-                    {item.status.replace('_', ' ')}
-                  </Chip>
-                  
-                  {urgencyLevel && (
+      <TouchableOpacity onPress={() => showIssueDetails(item)} activeOpacity={0.7}>
+        <Surface style={styles.issueSurface}>
+          <Card style={styles.card} mode="elevated">
+            <View style={[styles.statusIndicator, { backgroundColor: STATUS_COLORS[item.status] }]} />
+            <Card.Content>
+              <View style={styles.headerRow}>
+                <View style={styles.titleContainer}>
+                  <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+                  <View style={styles.chipContainer}>
                     <Chip 
-                      mode="flat" 
-                      style={[styles.urgencyChip, { backgroundColor: urgencyColors[urgencyLevel] + '20' }]}
-                      textStyle={{ color: urgencyColors[urgencyLevel], fontWeight: 'bold' }}
+                      mode="outlined" 
+                      style={[styles.statusChip, { borderColor: STATUS_COLORS[item.status] }]}
+                      textStyle={{ color: STATUS_COLORS[item.status], fontWeight: '600' }}
                     >
-                      {urgencyLevel.toUpperCase()}
+                      <MaterialCommunityIcons name={STATUS_ICONS[item.status]} size={14} color={STATUS_COLORS[item.status]} /> 
+                      {item.status.replace('_', ' ')}
                     </Chip>
-                  )}
-                  
-                  {item.hasAdminNotes && (
-                    <MaterialIcons name="comment" size={16} color="#9C27B0" style={styles.noteIcon} />
-                  )}
+                    
+                    {urgencyLevel && (
+                      <Chip 
+                        mode="outlined" 
+                        style={[styles.urgencyChip, { borderColor: urgencyColors[urgencyLevel] }]}
+                        textStyle={{ color: urgencyColors[urgencyLevel], fontWeight: '600' }}
+                      >
+                        <MaterialCommunityIcons name={urgencyIcons[urgencyLevel]} size={14} color={urgencyColors[urgencyLevel]} />
+                        {` ${urgencyLevel.toUpperCase()}`}
+                      </Chip>
+                    )}
+                    
+                    {item.hasAdminNotes && (
+                      <MaterialIcons name="comment" size={16} color={THEME_COLOR} style={styles.noteIcon} />
+                    )}
+                  </View>
+                </View>
+                <IconButton
+                  icon="dots-vertical"
+                  size={20}
+                  onPress={() => {
+                    setSelectedIssue(item.id);
+                    setMenuVisible(true);
+                  }}
+                  style={styles.menuButton}
+                />
+              </View>
+              
+              <Divider style={styles.divider} />
+              
+              <View style={styles.userInfoRow}>
+                <Avatar.Text 
+                  size={28} 
+                  label={item.userName ? item.userName.substring(0, 1).toUpperCase() : 'U'} 
+                  backgroundColor={item.userRole === 'tutor' ? '#2196F3' : '#4CAF50'}
+                  style={styles.userAvatar}
+                />
+                <View style={styles.userInfoContainer}>
+                  <Text style={styles.reporterInfo}>
+                    {item.userName} 
+                    <Text style={styles.roleTag}> • {item.userRole}</Text>
+                  </Text>
+                  <Text style={styles.dateInfo}>
+                    <MaterialCommunityIcons name="clock-outline" size={12} color="#888" /> {formattedDate}
+                  </Text>
                 </View>
               </View>
-              <IconButton
-                icon="dots-vertical"
-                size={20}
-                onPress={() => {
-                  setSelectedIssue(item.id);
-                  setMenuVisible(true);
-                }}
-              />
-            </View>
-            
-            <View style={styles.userInfoRow}>
-              <Avatar.Text 
-                size={24} 
-                label={item.userName ? item.userName.substring(0, 1).toUpperCase() : 'U'} 
-                backgroundColor={item.userRole === 'tutor' ? '#2196F3' : '#4CAF50'}
-                style={styles.userAvatar}
-              />
-              <Text style={styles.reporterInfo}>
-                {item.userName} ({item.userRole})
-              </Text>
-              <Text style={styles.dateInfo}>
-                {formattedDate}
-              </Text>
-            </View>
-            
-            <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
-            
-            <Text style={styles.viewMoreText}>Tap to view details</Text>
-          </Card.Content>
-        </Card>
+              
+              <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
+              
+              <View style={styles.cardFooter}>
+                <Text style={styles.viewMoreText}>View details</Text>
+                <MaterialCommunityIcons name="chevron-right" size={16} color={THEME_COLOR} />
+              </View>
+            </Card.Content>
+          </Card>
+        </Surface>
       </TouchableOpacity>
     );
   };
 
   const renderStatusBadges = () => (
-    <View style={styles.statusBadgesContainer}>
-      <View style={styles.statusBadge}>
-        <Badge style={[styles.badge, {backgroundColor: STATUS_COLORS.pending}]} size={24}>
-          {issueStats.pending}
-        </Badge>
-        <Text style={styles.badgeLabel}>Pending</Text>
+    <Surface style={styles.statsCardContainer}>
+      <View style={styles.statusBadgesContainer}>
+        <View style={styles.statusBadge}>
+          <Surface style={[styles.badgeSurface, {borderColor: STATUS_COLORS.pending}]}>
+            <Text style={[styles.badgeNumber, {color: STATUS_COLORS.pending}]}>{issueStats.pending}</Text>
+            <MaterialCommunityIcons name={STATUS_ICONS.pending} size={20} color={STATUS_COLORS.pending} />
+          </Surface>
+          <Text style={styles.badgeLabel}>Pending</Text>
+        </View>
+        
+        <View style={styles.statusBadge}>
+          <Surface style={[styles.badgeSurface, {borderColor: STATUS_COLORS.in_progress}]}>
+            <Text style={[styles.badgeNumber, {color: STATUS_COLORS.in_progress}]}>{issueStats.in_progress}</Text>
+            <MaterialCommunityIcons name={STATUS_ICONS.in_progress} size={20} color={STATUS_COLORS.in_progress} />
+          </Surface>
+          <Text style={styles.badgeLabel}>In Progress</Text>
+        </View>
+        
+        <View style={styles.statusBadge}>
+          <Surface style={[styles.badgeSurface, {borderColor: STATUS_COLORS.resolved}]}>
+            <Text style={[styles.badgeNumber, {color: STATUS_COLORS.resolved}]}>{issueStats.resolved}</Text>
+            <MaterialCommunityIcons name={STATUS_ICONS.resolved} size={20} color={STATUS_COLORS.resolved} />
+          </Surface>
+          <Text style={styles.badgeLabel}>Resolved</Text>
+        </View>
+        
+        <View style={styles.statusBadge}>
+          <Surface style={[styles.badgeSurface, {borderColor: STATUS_COLORS.rejected}]}>
+            <Text style={[styles.badgeNumber, {color: STATUS_COLORS.rejected}]}>{issueStats.rejected}</Text>
+            <MaterialCommunityIcons name={STATUS_ICONS.rejected} size={20} color={STATUS_COLORS.rejected} />
+          </Surface>
+          <Text style={styles.badgeLabel}>Rejected</Text>
+        </View>
       </View>
-      
-      <View style={styles.statusBadge}>
-        <Badge style={[styles.badge, {backgroundColor: STATUS_COLORS.in_progress}]} size={24}>
-          {issueStats.in_progress}
-        </Badge>
-        <Text style={styles.badgeLabel}>In Progress</Text>
-      </View>
-      
-      <View style={styles.statusBadge}>
-        <Badge style={[styles.badge, {backgroundColor: STATUS_COLORS.resolved}]} size={24}>
-          {issueStats.resolved}
-        </Badge>
-        <Text style={styles.badgeLabel}>Resolved</Text>
-      </View>
-      
-      <View style={styles.statusBadge}>
-        <Badge style={[styles.badge, {backgroundColor: STATUS_COLORS.rejected}]} size={24}>
-          {issueStats.rejected}
-        </Badge>
-        <Text style={styles.badgeLabel}>Rejected</Text>
-      </View>
-    </View>
+    </Surface>
   );
 
   const renderFilterButtons = () => (
@@ -331,6 +360,8 @@ const ReportedIssuesScreen = () => {
           onPress={() => onFilterChange('all')}
           style={styles.filterButton}
           labelStyle={styles.filterButtonLabel}
+          buttonColor={filterStatus === 'all' ? THEME_COLOR : 'transparent'}
+          textColor={filterStatus === 'all' ? 'white' : THEME_COLOR}
         >
           All ({issueStats.total})
         </Button>
@@ -338,7 +369,7 @@ const ReportedIssuesScreen = () => {
           mode={filterStatus === 'pending' ? 'contained' : 'outlined'}
           onPress={() => onFilterChange('pending')}
           style={styles.filterButton}
-          buttonColor={STATUS_COLORS.pending}
+          buttonColor={filterStatus === 'pending' ? STATUS_COLORS.pending : 'transparent'}
           textColor={filterStatus === 'pending' ? 'white' : STATUS_COLORS.pending}
         >
           Pending ({issueStats.pending})
@@ -347,7 +378,7 @@ const ReportedIssuesScreen = () => {
           mode={filterStatus === 'in_progress' ? 'contained' : 'outlined'}
           onPress={() => onFilterChange('in_progress')}
           style={styles.filterButton}
-          buttonColor={STATUS_COLORS.in_progress}
+          buttonColor={filterStatus === 'in_progress' ? STATUS_COLORS.in_progress : 'transparent'}
           textColor={filterStatus === 'in_progress' ? 'white' : STATUS_COLORS.in_progress}
         >
           In Progress ({issueStats.in_progress})
@@ -356,7 +387,7 @@ const ReportedIssuesScreen = () => {
           mode={filterStatus === 'resolved' ? 'contained' : 'outlined'}
           onPress={() => onFilterChange('resolved')}
           style={styles.filterButton}
-          buttonColor={STATUS_COLORS.resolved}
+          buttonColor={filterStatus === 'resolved' ? STATUS_COLORS.resolved : 'transparent'}
           textColor={filterStatus === 'resolved' ? 'white' : STATUS_COLORS.resolved}
         >
           Resolved ({issueStats.resolved})
@@ -365,7 +396,7 @@ const ReportedIssuesScreen = () => {
           mode={filterStatus === 'rejected' ? 'contained' : 'outlined'}
           onPress={() => onFilterChange('rejected')}
           style={styles.filterButton}
-          buttonColor={STATUS_COLORS.rejected}
+          buttonColor={filterStatus === 'rejected' ? STATUS_COLORS.rejected : 'transparent'}
           textColor={filterStatus === 'rejected' ? 'white' : STATUS_COLORS.rejected}
         >
           Rejected ({issueStats.rejected})
@@ -383,98 +414,123 @@ const ReportedIssuesScreen = () => {
       >
         {detailIssue && (
           <ScrollView style={styles.modalScrollView}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalTitleContainer}>
-                <Title style={styles.modalTitle}>{detailIssue.title}</Title>
-                <Chip 
-                  mode="flat" 
-                  style={[styles.statusChip, { backgroundColor: STATUS_COLORS[detailIssue.status] + '20' }]}
-                  textStyle={{ color: STATUS_COLORS[detailIssue.status], fontWeight: 'bold' }}
-                >
-                  <MaterialIcons name={STATUS_ICONS[detailIssue.status]} size={14} color={STATUS_COLORS[detailIssue.status]} /> 
-                  {detailIssue.status.replace('_', ' ')}
-                </Chip>
+            <LinearGradient
+              colors={[THEME_COLOR, THEME_COLOR_LIGHT]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalHeaderGradient}
+            >
+              <View style={styles.modalHeader}>
+                <View style={styles.modalTitleContainer}>
+                  <Text style={styles.modalTitle}>{detailIssue.title}</Text>
+                  <Chip 
+                    mode="outlined" 
+                    style={[styles.detailStatusChip, { borderColor: 'white' }]}
+                    textStyle={{ color: 'white', fontWeight: 'bold' }}
+                  >
+                    <MaterialCommunityIcons name={STATUS_ICONS[detailIssue.status]} size={14} color="white" /> 
+                    {detailIssue.status.replace('_', ' ')}
+                  </Chip>
+                </View>
+                <IconButton
+                  icon="close"
+                  iconColor="white"
+                  size={24}
+                  onPress={() => setModalVisible(false)}
+                />
               </View>
-              <IconButton
-                icon="close"
-                size={24}
-                onPress={() => setModalVisible(false)}
-              />
-            </View>
+            </LinearGradient>
             
-            <Card style={styles.modalCard}>
-              <Card.Content>
-                <Text style={styles.sectionTitle}>Reporter Information</Text>
-                <View style={styles.reporterDetailRow}>
-                  <MaterialIcons name="person" size={18} color="#666" />
-                  <Text style={styles.reporterDetailText}>
-                    {detailIssue.userName} ({detailIssue.userRole})
-                  </Text>
-                </View>
-                <View style={styles.reporterDetailRow}>
-                  <MaterialIcons name="email" size={18} color="#666" />
-                  <Text style={styles.reporterDetailText}>
-                    {detailIssue.userEmail}
-                  </Text>
-                </View>
-                <View style={styles.reporterDetailRow}>
-                  <MaterialIcons name="calendar-today" size={18} color="#666" />
-                  <Text style={styles.reporterDetailText}>
-                    Reported on: {detailIssue.createdAt.toLocaleString()}
-                  </Text>
-                </View>
-                {detailIssue.updatedAt && (
+            <Surface style={styles.detailCardSurface}>
+              <Card style={styles.modalCard}>
+                <Card.Content>
+                  <View style={styles.sectionTitleContainer}>
+                    <MaterialCommunityIcons name="account-details" size={20} color={THEME_COLOR} />
+                    <Text style={styles.sectionTitle}>Reporter Information</Text>
+                  </View>
                   <View style={styles.reporterDetailRow}>
-                    <MaterialIcons name="update" size={18} color="#666" />
+                    <MaterialCommunityIcons name="account" size={18} color="#666" />
                     <Text style={styles.reporterDetailText}>
-                      Last updated: {detailIssue.updatedAt.toLocaleString()}
+                      {detailIssue.userName} 
+                      <Text style={styles.detailRoleTag}> • {detailIssue.userRole}</Text>
                     </Text>
                   </View>
-                )}
-              </Card.Content>
-            </Card>
+                  <View style={styles.reporterDetailRow}>
+                    <MaterialCommunityIcons name="email-outline" size={18} color="#666" />
+                    <Text style={styles.reporterDetailText}>
+                      {detailIssue.userEmail}
+                    </Text>
+                  </View>
+                  <View style={styles.reporterDetailRow}>
+                    <MaterialCommunityIcons name="calendar-outline" size={18} color="#666" />
+                    <Text style={styles.reporterDetailText}>
+                      Reported on: {detailIssue.createdAt.toLocaleString()}
+                    </Text>
+                  </View>
+                  {detailIssue.updatedAt && (
+                    <View style={styles.reporterDetailRow}>
+                      <MaterialCommunityIcons name="update" size={18} color="#666" />
+                      <Text style={styles.reporterDetailText}>
+                        Last updated: {detailIssue.updatedAt.toLocaleString()}
+                      </Text>
+                    </View>
+                  )}
+                </Card.Content>
+              </Card>
+            </Surface>
             
-            <Card style={styles.modalCard}>
-              <Card.Content>
-                <Text style={styles.sectionTitle}>Issue Description</Text>
-                <Text style={styles.descriptionDetailText}>
-                  {detailIssue.description}
-                </Text>
-              </Card.Content>
-            </Card>
+            <Surface style={styles.detailCardSurface}>
+              <Card style={styles.modalCard}>
+                <Card.Content>
+                  <View style={styles.sectionTitleContainer}>
+                    <MaterialCommunityIcons name="text-box-outline" size={20} color={THEME_COLOR} />
+                    <Text style={styles.sectionTitle}>Issue Description</Text>
+                  </View>
+                  <Text style={styles.descriptionDetailText}>
+                    {detailIssue.description}
+                  </Text>
+                </Card.Content>
+              </Card>
+            </Surface>
             
             <View style={styles.actionButtonsContainer}>
-              <Button 
-                mode="contained"
-                style={[styles.actionButton, {backgroundColor: STATUS_COLORS.in_progress}]}
-                disabled={detailIssue.status === 'in_progress'}
-                onPress={() => updateIssueStatus(detailIssue.id, 'in_progress')}
-              >
-                Mark In Progress
-              </Button>
-              <Button 
-                mode="contained"
-                style={[styles.actionButton, {backgroundColor: STATUS_COLORS.resolved}]}
-                disabled={detailIssue.status === 'resolved'}
-                onPress={() => updateIssueStatus(detailIssue.id, 'resolved')}
-              >
-                Mark Resolved
-              </Button>
-              <Button 
-                mode="contained"
-                style={[styles.actionButton, {backgroundColor: STATUS_COLORS.rejected}]}
-                disabled={detailIssue.status === 'rejected'}
-                onPress={() => updateIssueStatus(detailIssue.id, 'rejected')}
-              >
-                Reject Issue
-              </Button>
-              <Button 
-                mode="contained"
-                style={[styles.actionButton, {backgroundColor: '#9C27B0'}]}
-                onPress={() => setAddNoteVisible(true)}
-              >
-                Add Admin Note
-              </Button>
+              <Surface style={styles.actionButtonsSurface}>
+                <Button 
+                  mode="contained"
+                  icon={() => <MaterialCommunityIcons name={STATUS_ICONS.in_progress} size={18} color="white" />}
+                  style={[styles.actionButton, {backgroundColor: STATUS_COLORS.in_progress}]}
+                  disabled={detailIssue.status === 'in_progress'}
+                  onPress={() => updateIssueStatus(detailIssue.id, 'in_progress')}
+                >
+                  Mark In Progress
+                </Button>
+                <Button 
+                  mode="contained"
+                  icon={() => <MaterialCommunityIcons name={STATUS_ICONS.resolved} size={18} color="white" />}
+                  style={[styles.actionButton, {backgroundColor: STATUS_COLORS.resolved}]}
+                  disabled={detailIssue.status === 'resolved'}
+                  onPress={() => updateIssueStatus(detailIssue.id, 'resolved')}
+                >
+                  Mark Resolved
+                </Button>
+                <Button 
+                  mode="contained"
+                  icon={() => <MaterialCommunityIcons name={STATUS_ICONS.rejected} size={18} color="white" />}
+                  style={[styles.actionButton, {backgroundColor: STATUS_COLORS.rejected}]}
+                  disabled={detailIssue.status === 'rejected'}
+                  onPress={() => updateIssueStatus(detailIssue.id, 'rejected')}
+                >
+                  Reject Issue
+                </Button>
+                <Button 
+                  mode="contained"
+                  icon="note-text-outline"
+                  style={[styles.actionButton, {backgroundColor: THEME_COLOR}]}
+                  onPress={() => setAddNoteVisible(true)}
+                >
+                  Add Admin Note
+                </Button>
+              </Surface>
             </View>
           </ScrollView>
         )}
@@ -501,6 +557,7 @@ const ReportedIssuesScreen = () => {
             mode="contained" 
             onPress={addAdminNote}
             disabled={!adminNote.trim()}
+            style={{backgroundColor: THEME_COLOR}}
           >
             Save Note
           </Button>
@@ -512,29 +569,43 @@ const ReportedIssuesScreen = () => {
   if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#9C27B0" />
+        <ActivityIndicator size="large" color={THEME_COLOR} />
         <Text style={styles.loadingText}>Loading issues...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Reported Issues</Text>
-        <Text style={styles.headerSubtitle}>
-          Manage user-reported issues and respond to them
-        </Text>
-      </View>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      <StatusBar backgroundColor={THEME_COLOR} barStyle="light-content" />
+      
+      <LinearGradient
+        colors={[THEME_COLOR, THEME_COLOR_LIGHT]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerGradient}
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Reported Issues</Text>
+          <Text style={styles.headerSubtitle}>
+            Manage user-reported issues and respond to them
+          </Text>
+        </View>
+      </LinearGradient>
       
       {renderStatusBadges()}
       
-      <Searchbar
-        placeholder="Search issues..."
-        onChangeText={onChangeSearch}
-        value={searchQuery}
-        style={styles.searchBar}
-      />
+      <Surface style={styles.searchContainer}>
+        <Searchbar
+          placeholder="Search issues..."
+          onChangeText={onChangeSearch}
+          value={searchQuery}
+          style={styles.searchBar}
+          iconColor={THEME_COLOR}
+          inputStyle={styles.searchInput}
+          clearIcon="close-circle"
+        />
+      </Surface>
       
       {renderFilterButtons()}
       
@@ -544,16 +615,16 @@ const ReportedIssuesScreen = () => {
         renderItem={renderIssueItem}
         contentContainerStyle={styles.listContainer}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#9C27B0']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[THEME_COLOR]} />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <MaterialIcons name="sentiment-satisfied-alt" size={64} color="#9E9E9E" />
+          <Surface style={styles.emptyContainer}>
+            <MaterialCommunityIcons name="information-outline" size={64} color="#9E9E9E" />
             <Text style={styles.emptyText}>
               {searchQuery ? 
                 'No issues found matching your search' : 
                 filterStatus !== 'all' ? 
-                  `No ${filterStatus} issues found` :
+                  `No ${filterStatus.replace('_', ' ')} issues found` :
                   'No reported issues yet'
               }
             </Text>
@@ -570,7 +641,7 @@ const ReportedIssuesScreen = () => {
                 Clear Filters
               </Button>
             )}
-          </View>
+          </Surface>
         }
       />
       
@@ -597,26 +668,26 @@ const ReportedIssuesScreen = () => {
         <Menu.Item 
           onPress={() => updateIssueStatus(selectedIssue, 'in_progress')} 
           title="Mark In Progress" 
-          leadingIcon="progress-clock"
+          leadingIcon={STATUS_ICONS.in_progress}
           disabled={issues.find(issue => issue.id === selectedIssue)?.status === 'in_progress'}
         />
         <Menu.Item 
           onPress={() => updateIssueStatus(selectedIssue, 'resolved')} 
           title="Mark Resolved"
-          leadingIcon="check-circle"
+          leadingIcon={STATUS_ICONS.resolved}
           disabled={issues.find(issue => issue.id === selectedIssue)?.status === 'resolved'}
         />
         <Menu.Item 
           onPress={() => updateIssueStatus(selectedIssue, 'rejected')} 
           title="Reject Issue"
-          leadingIcon="cancel"
+          leadingIcon={STATUS_ICONS.rejected}
           disabled={issues.find(issue => issue.id === selectedIssue)?.status === 'rejected'}
         />
         <Divider />
         <Menu.Item 
           onPress={() => updateIssueStatus(selectedIssue, 'pending')} 
           title="Mark Pending"
-          leadingIcon="clock-alert"
+          leadingIcon={STATUS_ICONS.pending}
           disabled={issues.find(issue => issue.id === selectedIssue)?.status === 'pending'}
         />
       </Menu>
@@ -629,73 +700,103 @@ const ReportedIssuesScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f7',
+    backgroundColor: '#f8f9fa',
   },
-  header: {
-    backgroundColor: '#8e24aa',
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
+  headerGradient: {
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    paddingBottom: 30,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 4,
+    elevation: 6,
+  },
+  header: {
+    paddingVertical: 24,
+    paddingHorizontal: 20,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
     color: 'white',
   },
   headerSubtitle: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(255, 255, 255, 0.9)',
     marginTop: 4,
+  },
+  statsCardContainer: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    borderRadius: 16,
+    padding: 10,
+    backgroundColor: 'white',
+    elevation: 4,
   },
   statusBadgesContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginVertical: 16,
-    paddingHorizontal: 8,
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
   },
   statusBadge: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badge: {
-    marginBottom: 4,
+  badgeSurface: {
+    borderWidth: 2,
+    borderRadius: 50,
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
+    elevation: 2,
+    marginBottom: 8,
+  },
+  badgeNumber: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   badgeLabel: {
     fontSize: 12,
     color: '#555',
+    fontWeight: '500',
+  },
+  searchContainer: {
+    marginHorizontal: 16,
+    marginVertical: 12,
+    borderRadius: 10,
+    backgroundColor: 'white',
+    elevation: 2,
   },
   searchBar: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    elevation: 2,
+    elevation: 0,
     backgroundColor: 'white',
-    borderRadius: 8,
+    borderRadius: 10,
+  },
+  searchInput: {
+    fontSize: 14,
   },
   filterContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     marginBottom: 16,
+    marginTop: 6,
   },
   filterButton: {
     marginHorizontal: 4,
-    borderRadius: 20,
+    borderRadius: 25,
     paddingHorizontal: 4,
   },
   filterButtonLabel: {
     fontSize: 12,
-    marginVertical: 0,
-    paddingVertical: 0,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f8f9fa',
   },
   loadingText: {
     marginTop: 12,
@@ -703,10 +804,12 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 24,
+    marginHorizontal: 16,
+    marginTop: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: 'white',
   },
   emptyText: {
     fontSize: 16,
@@ -717,20 +820,38 @@ const styles = StyleSheet.create({
   },
   clearFiltersButton: {
     marginTop: 12,
+    borderColor: THEME_COLOR,
+    borderRadius: 25,
   },
   listContainer: {
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
-  card: {
+  issueSurface: {
     marginBottom: 12,
     borderRadius: 12,
+    backgroundColor: 'white',
     elevation: 2,
+    overflow: 'hidden',
+  },
+  card: {
+    borderRadius: 12,
+    elevation: 0,
+    margin: 0,
+    overflow: 'hidden',
+  },
+  statusIndicator: {
+    height: '100%',
+    width: 6,
+    position: 'absolute',
+    left: 0,
+    top: 0,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    paddingLeft: 12,
   },
   titleContainer: {
     flex: 1,
@@ -740,65 +861,91 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
+    marginTop: 20,
+  },
+  menuButton: {
+    marginTop: 20,
   },
   noteIcon: {
-    margin: 0,
-    padding: 0,
+    margin: 6,
   },
   chipContainer: {
     flexDirection: 'row',
     marginTop: 8,
+    alignItems: 'center',
   },
   statusChip: {
-    height: 28,
+    height: 33,
     marginRight: 8,
   },
   urgencyChip: {
-    height: 28,
+    height: 33,
+  },
+  divider: {
+    marginVertical: 10,
   },
   userInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 8,
+    marginVertical: 8,
   },
   userAvatar: {
-    marginRight: 8,
+    marginRight: 10,
+  },
+  userInfoContainer: {
+    flex: 1,
   },
   reporterInfo: {
     fontSize: 14,
-    color: '#555',
-    flex: 1,
+    color: '#444',
+    fontWeight: '500',
+  },
+  roleTag: {
+    fontSize: 13,
+    color: '#777',
+    fontWeight: 'normal',
   },
   dateInfo: {
     fontSize: 12,
     color: '#888',
+    marginTop: 2,
   },
   description: {
     fontSize: 14,
     color: '#666',
     marginTop: 8,
+    lineHeight: 20,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 10,
   },
   viewMoreText: {
     fontSize: 13,
-    color: '#8e24aa',
-    marginTop: 8,
-    textAlign: 'right',
+    color: THEME_COLOR,
+    fontWeight: '500',
   },
   modalContainer: {
-    backgroundColor: 'white',
-    margin: 20,
+    backgroundColor: '#f8f9fa',
+    margin: 16,
     borderRadius: 16,
     maxHeight: '90%',
+    overflow: 'hidden',
   },
   modalScrollView: {
-    padding: 16,
+    flexGrow: 1,
+  },
+  modalHeaderGradient: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    padding: 20,
   },
   modalTitleContainer: {
     flex: 1,
@@ -806,48 +953,76 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: 'white',
     marginBottom: 8,
   },
-  modalCard: {
-    marginBottom: 16,
+  detailStatusChip: {
+    height: 28,
+    borderWidth: 1,
+  },
+  detailCardSurface: {
+    margin: 12,
     borderRadius: 12,
+    backgroundColor: 'white',
     elevation: 1,
+    overflow: 'hidden',
+  },
+  modalCard: {
+    borderRadius: 12,
+    elevation: 0,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#555',
-    marginBottom: 12,
+    color: '#444',
+    marginLeft: 8,
   },
   reporterDetailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   reporterDetailText: {
     fontSize: 14,
     color: '#666',
     marginLeft: 12,
   },
+  detailRoleTag: {
+    fontSize: 14,
+    color: '#777',
+    fontWeight: 'normal',
+  },
   descriptionDetailText: {
     fontSize: 14,
     color: '#666',
-    lineHeight: 20,
+    lineHeight: 22,
   },
   actionButtonsContainer: {
-    marginTop: 8,
-    marginBottom: 16,
+    margin: 12,
+    marginBottom: 24,
+  },
+  actionButtonsSurface: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'white',
+    elevation: 1,
   },
   actionButton: {
     marginBottom: 12,
     borderRadius: 8,
+    elevation: 0,
   },
   noteModalContainer: {
     backgroundColor: 'white',
     padding: 20,
     margin: 20,
     borderRadius: 16,
+    elevation: 6,
   },
   noteModalTitle: {
     fontSize: 18,
