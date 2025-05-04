@@ -16,10 +16,10 @@ const STATUS_COLORS = {
 };
 
 const STATUS_ICONS = {
-  pending: 'clock-outline',
-  in_progress: 'progress-check',
+  pending: 'access-time',
+  in_progress: 'hourglass-bottom',
   resolved: 'check-circle',
-  rejected: 'close-circle',
+  rejected: 'cancel',
 };
 
 const ReportedIssuesScreen = () => {
@@ -729,7 +729,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   statusBadgesScrollContent: {
-    paddingHorizontal: 4,
+    paddingHorizontal: 1,
+    alignItems: 'center',
   },
   statusCard: {
     backgroundColor: 'white',
@@ -738,11 +739,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 6,
     width: 100,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 2,
+    height: 110,
   },
   statusIconContainer: {
     width: 44,
@@ -756,11 +759,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
+    textAlign: 'center',
   },
   statusLabel: {
     fontSize: 12,
     color: '#666',
     marginTop: 4,
+    textAlign: 'center',
   },
   searchBar: {
     marginHorizontal: 16,
@@ -817,7 +822,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: 4,
+    width: 7,
     height: '100%',
   },
   issueHeader: {
@@ -966,6 +971,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 20,
+    
   },
   modalTitleContainer: {
     flex: 1,
