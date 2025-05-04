@@ -9,17 +9,17 @@ import { collection, query, orderBy, getDocs, doc, updateDoc, addDoc } from 'fir
 const { width } = Dimensions.get('window');
 
 const STATUS_COLORS = {
-  pending: '#FFC107', // Yellow
+  pending: '#FF9800',    // Amber/Orange
   in_progress: '#2196F3', // Blue
-  resolved: '#4CAF50', // Green
-  rejected: '#F44336', // Red
+  resolved: '#4CAF50',   // Green
+  rejected: '#F44336',   // Red
 };
 
 const STATUS_ICONS = {
-  pending: 'clock-alert-outline',
-  in_progress: 'progress-clock',
-  resolved: 'check-circle-outline',
-  rejected: 'cancel',
+  pending: 'clock-outline',
+  in_progress: 'progress-check',
+  resolved: 'check-circle',
+  rejected: 'close-circle',
 };
 
 const ReportedIssuesScreen = () => {
@@ -221,45 +221,47 @@ const ReportedIssuesScreen = () => {
     const urgencyLevel = item.urgency || 'medium';
     const urgencyColors = {
       low: '#4CAF50',
-      medium: '#FFC107',
+      medium: '#FF9800',
       high: '#F44336'
     };
 
     return (
-      <TouchableOpacity onPress={() => showIssueDetails(item)}>
-        <Card style={[styles.card, { borderLeftWidth: 5, borderLeftColor: STATUS_COLORS[item.status] }]} mode="outlined">
+      <TouchableOpacity onPress={() => showIssueDetails(item)} activeOpacity={0.7}>
+        <Card style={styles.issueCard} mode="outlined">
+          <View style={[styles.statusIndicator, { backgroundColor: STATUS_COLORS[item.status] }]} />
           <Card.Content>
-            <View style={styles.headerRow}>
-              <View style={styles.titleContainer}>
-                <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-                <View style={styles.chipContainer}>
-                  <Chip 
-                    mode="flat" 
-                    style={[styles.statusChip, { backgroundColor: STATUS_COLORS[item.status] + '20' }]}
-                    textStyle={{ color: STATUS_COLORS[item.status], fontWeight: 'bold' }}
-                  >
-                    <MaterialIcons name={STATUS_ICONS[item.status]} size={14} color={STATUS_COLORS[item.status]} /> 
+            <View style={styles.issueHeader}>
+              <View style={styles.titleSection}>
+                <Text style={styles.issueTitle} numberOfLines={1}>{item.title}</Text>
+                
+                <View style={styles.issueMetaContainer}>
+                  <View style={[styles.statusDot, { backgroundColor: STATUS_COLORS[item.status] }]} />
+                  <Text style={styles.statusText}>
                     {item.status.replace('_', ' ')}
-                  </Chip>
+                  </Text>
                   
                   {urgencyLevel && (
-                    <Chip 
-                      mode="flat" 
-                      style={[styles.urgencyChip, { backgroundColor: urgencyColors[urgencyLevel] + '20' }]}
-                      textStyle={{ color: urgencyColors[urgencyLevel], fontWeight: 'bold' }}
-                    >
-                      {urgencyLevel.toUpperCase()}
-                    </Chip>
+                    <>
+                      <View style={styles.metaSeparator} />
+                      <Text style={[styles.urgencyText, { color: urgencyColors[urgencyLevel] }]}>
+                        {urgencyLevel}
+                      </Text>
+                    </>
                   )}
                   
                   {item.hasAdminNotes && (
-                    <MaterialIcons name="comment" size={16} color="#9C27B0" style={styles.noteIcon} />
+                    <>
+                      <View style={styles.metaSeparator} />
+                      <MaterialIcons name="comment" size={14} color="#6A1B9A" />
+                    </>
                   )}
                 </View>
               </View>
+              
               <IconButton
                 icon="dots-vertical"
                 size={20}
+                style={styles.menuButton}
                 onPress={() => {
                   setSelectedIssue(item.id);
                   setMenuVisible(true);
@@ -267,24 +269,22 @@ const ReportedIssuesScreen = () => {
               />
             </View>
             
-            <View style={styles.userInfoRow}>
-              <Avatar.Text 
-                size={24} 
-                label={item.userName ? item.userName.substring(0, 1).toUpperCase() : 'U'} 
-                backgroundColor={item.userRole === 'tutor' ? '#2196F3' : '#4CAF50'}
-                style={styles.userAvatar}
-              />
-              <Text style={styles.reporterInfo}>
-                {item.userName} ({item.userRole})
-              </Text>
-              <Text style={styles.dateInfo}>
-                {formattedDate}
-              </Text>
+            <Text style={styles.issueDescription} numberOfLines={2}>{item.description}</Text>
+            
+            <View style={styles.issueFooter}>
+              <View style={styles.userInfo}>
+                <Avatar.Text 
+                  size={24} 
+                  label={item.userName ? item.userName.substring(0, 1).toUpperCase() : 'U'} 
+                  style={styles.avatar}
+                  color="white"
+                  backgroundColor={item.userRole === 'tutor' ? '#2196F3' : '#4CAF50'}
+                />
+                <Text style={styles.userName}>{item.userName}</Text>
+              </View>
+              
+              <Text style={styles.dateText}>{formattedDate}</Text>
             </View>
-            
-            <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
-            
-            <Text style={styles.viewMoreText}>Tap to view details</Text>
           </Card.Content>
         </Card>
       </TouchableOpacity>
@@ -293,37 +293,59 @@ const ReportedIssuesScreen = () => {
 
   const renderStatusBadges = () => (
     <View style={styles.statusBadgesContainer}>
-      <View style={styles.statusBadge}>
-        <View style={[styles.badgeIconContainer, {backgroundColor: STATUS_COLORS.pending + '20'}]}>
-          <MaterialIcons name={STATUS_ICONS.pending} size={20} color={STATUS_COLORS.pending} />
-        </View>
-        <Text style={styles.badgeValue}>{issueStats.pending}</Text>
-        <Text style={styles.badgeLabel}>Pending</Text>
-      </View>
-      
-      <View style={styles.statusBadge}>
-        <View style={[styles.badgeIconContainer, {backgroundColor: STATUS_COLORS.in_progress + '20'}]}>
-          <MaterialIcons name={STATUS_ICONS.in_progress} size={20} color={STATUS_COLORS.in_progress} />
-        </View>
-        <Text style={styles.badgeValue}>{issueStats.in_progress}</Text>
-        <Text style={styles.badgeLabel}>In Progress</Text>
-      </View>
-      
-      <View style={styles.statusBadge}>
-        <View style={[styles.badgeIconContainer, {backgroundColor: STATUS_COLORS.resolved + '20'}]}>
-          <MaterialIcons name={STATUS_ICONS.resolved} size={20} color={STATUS_COLORS.resolved} />
-        </View>
-        <Text style={styles.badgeValue}>{issueStats.resolved}</Text>
-        <Text style={styles.badgeLabel}>Resolved</Text>
-      </View>
-      
-      <View style={styles.statusBadge}>
-        <View style={[styles.badgeIconContainer, {backgroundColor: STATUS_COLORS.rejected + '20'}]}>
-          <MaterialIcons name={STATUS_ICONS.rejected} size={20} color={STATUS_COLORS.rejected} />
-        </View>
-        <Text style={styles.badgeValue}>{issueStats.rejected}</Text>
-        <Text style={styles.badgeLabel}>Rejected</Text>
-      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.statusBadgesScrollContent}
+      >
+        <TouchableOpacity 
+          style={styles.statusCard} 
+          onPress={() => onFilterChange('pending')}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.statusIconContainer, {backgroundColor: STATUS_COLORS.pending + '15'}]}>
+            <MaterialIcons name={STATUS_ICONS.pending} size={22} color={STATUS_COLORS.pending} />
+          </View>
+          <Text style={styles.statusCount}>{issueStats.pending}</Text>
+          <Text style={styles.statusLabel}>Pending</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.statusCard} 
+          onPress={() => onFilterChange('in_progress')}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.statusIconContainer, {backgroundColor: STATUS_COLORS.in_progress + '15'}]}>
+            <MaterialIcons name={STATUS_ICONS.in_progress} size={22} color={STATUS_COLORS.in_progress} />
+          </View>
+          <Text style={styles.statusCount}>{issueStats.in_progress}</Text>
+          <Text style={styles.statusLabel}>In Progress</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.statusCard} 
+          onPress={() => onFilterChange('resolved')}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.statusIconContainer, {backgroundColor: STATUS_COLORS.resolved + '15'}]}>
+            <MaterialIcons name={STATUS_ICONS.resolved} size={22} color={STATUS_COLORS.resolved} />
+          </View>
+          <Text style={styles.statusCount}>{issueStats.resolved}</Text>
+          <Text style={styles.statusLabel}>Resolved</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.statusCard} 
+          onPress={() => onFilterChange('rejected')}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.statusIconContainer, {backgroundColor: STATUS_COLORS.rejected + '15'}]}>
+            <MaterialIcons name={STATUS_ICONS.rejected} size={22} color={STATUS_COLORS.rejected} />
+          </View>
+          <Text style={styles.statusCount}>{issueStats.rejected}</Text>
+          <Text style={styles.statusLabel}>Rejected</Text>
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 
@@ -334,83 +356,74 @@ const ReportedIssuesScreen = () => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filterScrollContent}
       >
-        <Button
-          mode={filterStatus === 'all' ? 'contained' : 'outlined'}
+        <TouchableOpacity
+          style={[
+            styles.chipFilter,
+            filterStatus === 'all' && styles.activeChipFilter
+          ]}
           onPress={() => onFilterChange('all')}
-          style={[styles.filterButton, filterStatus === 'all' && styles.activeFilterButton]}
-          labelStyle={[
-            styles.filterButtonLabel, 
-            filterStatus === 'all' && styles.activeFilterButtonLabel
-          ]}
-          icon="filter-variant"
-          contentStyle={styles.filterButtonContent}
         >
-          All ({issueStats.total})
-        </Button>
-        <Button
-          mode={filterStatus === 'pending' ? 'contained' : 'outlined'}
+          <Text style={[
+            styles.chipFilterText,
+            filterStatus === 'all' && styles.activeChipFilterText
+          ]}>All Issues</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.chipFilter,
+            filterStatus === 'pending' && styles.activeChipFilter,
+            filterStatus === 'pending' && {backgroundColor: STATUS_COLORS.pending + '20'}
+          ]}
           onPress={() => onFilterChange('pending')}
-          style={[styles.filterButton, 
-            filterStatus === 'pending' && {backgroundColor: STATUS_COLORS.pending}
-          ]}
-          labelStyle={[
-            styles.filterButtonLabel, 
-            filterStatus === 'pending' && styles.activeFilterButtonLabel
-          ]}
-          icon={STATUS_ICONS.pending}
-          textColor={filterStatus === 'pending' ? 'white' : STATUS_COLORS.pending}
-          contentStyle={styles.filterButtonContent}
         >
-          Pending
-        </Button>
-        <Button
-          mode={filterStatus === 'in_progress' ? 'contained' : 'outlined'}
+          <Text style={[
+            styles.chipFilterText,
+            filterStatus === 'pending' && {color: STATUS_COLORS.pending}
+          ]}>Pending</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.chipFilter,
+            filterStatus === 'in_progress' && styles.activeChipFilter,
+            filterStatus === 'in_progress' && {backgroundColor: STATUS_COLORS.in_progress + '20'}
+          ]}
           onPress={() => onFilterChange('in_progress')}
-          style={[styles.filterButton, 
-            filterStatus === 'in_progress' && {backgroundColor: STATUS_COLORS.in_progress}
-          ]}
-          labelStyle={[
-            styles.filterButtonLabel, 
-            filterStatus === 'in_progress' && styles.activeFilterButtonLabel
-          ]}
-          icon={STATUS_ICONS.in_progress}
-          textColor={filterStatus === 'in_progress' ? 'white' : STATUS_COLORS.in_progress}
-          contentStyle={styles.filterButtonContent}
         >
-          In Progress
-        </Button>
-        <Button
-          mode={filterStatus === 'resolved' ? 'contained' : 'outlined'}
+          <Text style={[
+            styles.chipFilterText,
+            filterStatus === 'in_progress' && {color: STATUS_COLORS.in_progress}
+          ]}>In Progress</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.chipFilter,
+            filterStatus === 'resolved' && styles.activeChipFilter,
+            filterStatus === 'resolved' && {backgroundColor: STATUS_COLORS.resolved + '20'}
+          ]}
           onPress={() => onFilterChange('resolved')}
-          style={[styles.filterButton, 
-            filterStatus === 'resolved' && {backgroundColor: STATUS_COLORS.resolved}
-          ]}
-          labelStyle={[
-            styles.filterButtonLabel, 
-            filterStatus === 'resolved' && styles.activeFilterButtonLabel
-          ]}
-          icon={STATUS_ICONS.resolved}
-          textColor={filterStatus === 'resolved' ? 'white' : STATUS_COLORS.resolved}
-          contentStyle={styles.filterButtonContent}
         >
-          Resolved
-        </Button>
-        <Button
-          mode={filterStatus === 'rejected' ? 'contained' : 'outlined'}
+          <Text style={[
+            styles.chipFilterText,
+            filterStatus === 'resolved' && {color: STATUS_COLORS.resolved}
+          ]}>Resolved</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.chipFilter,
+            filterStatus === 'rejected' && styles.activeChipFilter,
+            filterStatus === 'rejected' && {backgroundColor: STATUS_COLORS.rejected + '20'}
+          ]}
           onPress={() => onFilterChange('rejected')}
-          style={[styles.filterButton, 
-            filterStatus === 'rejected' && {backgroundColor: STATUS_COLORS.rejected}
-          ]}
-          labelStyle={[
-            styles.filterButtonLabel, 
-            filterStatus === 'rejected' && styles.activeFilterButtonLabel
-          ]}
-          icon={STATUS_ICONS.rejected}
-          textColor={filterStatus === 'rejected' ? 'white' : STATUS_COLORS.rejected}
-          contentStyle={styles.filterButtonContent}
         >
-          Rejected
-        </Button>
+          <Text style={[
+            styles.chipFilterText,
+            filterStatus === 'rejected' && {color: STATUS_COLORS.rejected}
+          ]}>Rejected</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -553,7 +566,7 @@ const ReportedIssuesScreen = () => {
   if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#8e24aa" />
+        <ActivityIndicator size="large" color="#6A1B9A" />
         <Text style={styles.loadingText}>Loading issues...</Text>
       </View>
     );
@@ -566,60 +579,63 @@ const ReportedIssuesScreen = () => {
         <Text style={styles.headerSubtitle}>Manage user-reported issues and respond to them</Text>
       </View>
       
-      {renderStatusBadges()}
-      
-      <Searchbar
-        placeholder="Search issues..."
-        onChangeText={onChangeSearch}
-        value={searchQuery}
-        style={styles.searchBar}
-        iconColor="#8e24aa"
-      />
-      
-      {renderFilterButtons()}
-      
-      {loading && !refreshing ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8e24aa" />
-          <Text style={styles.loadingText}>Loading issues...</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredIssues}
-          renderItem={renderIssueItem}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContainer}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#8e24aa"]} />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <MaterialIcons name="sentiment-satisfied-alt" size={64} color="#9E9E9E" />
-              <Text style={styles.emptyText}>
-                {searchQuery ? 
-                  'No issues found matching your search' : 
-                  filterStatus !== 'all' ? 
-                    `No ${filterStatus} issues found` :
-                    'No reported issues yet'
-                }
-              </Text>
-              {(searchQuery || filterStatus !== 'all') && (
-                <Button 
-                  mode="outlined" 
-                  onPress={() => {
-                    setSearchQuery('');
-                    setFilterStatus('all');
-                    applyFilters(issues, '', 'all');
-                  }}
-                  style={styles.clearFiltersButton}
-                >
-                  Clear Filters
-                </Button>
-              )}
-            </View>
-          }
+      <View style={styles.contentContainer}>
+        {renderStatusBadges()}
+        
+        <Searchbar
+          placeholder="Search issues..."
+          onChangeText={onChangeSearch}
+          value={searchQuery}
+          style={styles.searchBar}
+          iconColor="#6A1B9A"
+          paddingBottom={7}
         />
-      )}
+        
+        {renderFilterButtons()}
+        
+        {loading && !refreshing ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#6A1B9A" />
+            <Text style={styles.loadingText}>Loading issues...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredIssues}
+            renderItem={renderIssueItem}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.listContainer}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#6A1B9A"]} />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <MaterialIcons name="inbox" size={64} color="#BDBDBD" />
+                <Text style={styles.emptyTitle}>No issues found</Text>
+                <Text style={styles.emptyText}>
+                  {searchQuery ? 
+                    'Try changing your search query' : 
+                    filterStatus !== 'all' ? 
+                      `No ${filterStatus.replace('_', ' ')} issues at the moment` :
+                      'No reported issues yet'
+                  }
+                </Text>
+                {(searchQuery || filterStatus !== 'all') && (
+                  <TouchableOpacity
+                    style={styles.clearButton}
+                    onPress={() => {
+                      setSearchQuery('');
+                      setFilterStatus('all');
+                      applyFilters(issues, '', 'all');
+                    }}
+                  >
+                    <Text style={styles.clearButtonText}>Clear Filters</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            }
+          />
+        )}
+      </View>
       
       <Menu
         visible={menuVisible}
@@ -628,6 +644,7 @@ const ReportedIssuesScreen = () => {
           setSelectedIssue(null);
         }}
         anchor={{ x: width - 40, y: 100 }}
+        contentStyle={styles.menuContent}
       >
         <Menu.Item 
           onPress={() => {
@@ -640,30 +657,30 @@ const ReportedIssuesScreen = () => {
           title="View Details" 
           leadingIcon="eye"
         />
-        <Divider />
+        <Divider style={styles.menuDivider} />
         <Menu.Item 
           onPress={() => updateIssueStatus(selectedIssue, 'in_progress')} 
           title="Mark In Progress" 
-          leadingIcon="progress-clock"
+          leadingIcon={STATUS_ICONS.in_progress}
           disabled={issues.find(issue => issue.id === selectedIssue)?.status === 'in_progress'}
         />
         <Menu.Item 
           onPress={() => updateIssueStatus(selectedIssue, 'resolved')} 
           title="Mark Resolved"
-          leadingIcon="check-circle"
+          leadingIcon={STATUS_ICONS.resolved}
           disabled={issues.find(issue => issue.id === selectedIssue)?.status === 'resolved'}
         />
         <Menu.Item 
           onPress={() => updateIssueStatus(selectedIssue, 'rejected')} 
           title="Reject Issue"
-          leadingIcon="cancel"
+          leadingIcon={STATUS_ICONS.rejected}
           disabled={issues.find(issue => issue.id === selectedIssue)?.status === 'rejected'}
         />
-        <Divider />
+        <Divider style={styles.menuDivider} />
         <Menu.Item 
           onPress={() => updateIssueStatus(selectedIssue, 'pending')} 
           title="Mark Pending"
-          leadingIcon="clock-alert"
+          leadingIcon={STATUS_ICONS.pending}
           disabled={issues.find(issue => issue.id === selectedIssue)?.status === 'pending'}
         />
       </Menu>
@@ -676,114 +693,207 @@ const ReportedIssuesScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F5F7FA',
   },
   header: {
-    backgroundColor: '#9C27B0',
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    backgroundColor: '#6A1B9A',
+    paddingTop: 20,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
-    elevation: 6,
-    marginBottom: 8,
+    elevation: 8,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 4,
     letterSpacing: 0.2,
   },
+  contentContainer: {
+    flex: 1,
+    marginTop: -16,
+  },
   statusBadgesContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
     marginHorizontal: 16,
-    marginVertical: 16,
+    marginBottom: 16,
+  },
+  statusBadgesScrollContent: {
+    paddingHorizontal: 4,
+  },
+  statusCard: {
     backgroundColor: 'white',
     borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 8,
+    padding: 16,
+    marginHorizontal: 6,
+    width: 100,
+    alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowRadius: 3,
     elevation: 2,
   },
-  statusBadge: {
+  statusIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 70,
+    marginBottom: 8,
   },
-  badgeIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  badgeValue: {
-    fontSize: 16,
+  statusCount: {
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
-    marginVertical: 4,
   },
-  badgeLabel: {
+  statusLabel: {
     fontSize: 12,
     color: '#666',
-    textAlign: 'center',
+    marginTop: 4,
   },
   searchBar: {
     marginHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 16,
+    borderRadius: 20,
     elevation: 1,
     backgroundColor: 'white',
-    borderRadius: 12,
     height: 48,
   },
   filterContainer: {
-    marginVertical: 12,
+    marginBottom: 16,
     paddingHorizontal: 16,
   },
   filterScrollContent: {
-    flexGrow: 1,
+    paddingBottom: 8,
     justifyContent: 'center',
-    paddingHorizontal: 8,
   },
-  filterButton: {
-    marginHorizontal: 6,
+  chipFilter: {
+    backgroundColor: '#F5F5F5',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
-    paddingHorizontal: 12,
-    borderColor: '#e0e0e0',
-    height: 36,
+    marginRight: 8,
   },
-  filterButtonContent: {
+  activeChipFilter: {
+    backgroundColor: '#EEEEEE',
+  },
+  chipFilterText: {
+    fontSize: 13,
+    color: '#616161',
+    fontWeight: '500',
+  },
+  activeChipFilterText: {
+    color: '#6A1B9A',
+    fontWeight: 'bold',
+  },
+  listContainer: {
+    padding: 16,
+    paddingTop: 0,
+  },
+  issueCard: {
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 0,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    position: 'relative',
+  },
+  statusIndicator: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 4,
+    height: '100%',
+  },
+  issueHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    marginTop: 15,
+  },
+  titleSection: {
+    flex: 1,
+    marginRight: 8,
+  },
+  issueTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  issueMetaContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    flexWrap: 'wrap',
   },
-  activeFilterButton: {
-    backgroundColor: '#9C27B0',
-    borderColor: '#9C27B0',
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 4,
   },
-  filterButtonLabel: {
+  statusText: {
     fontSize: 12,
-    letterSpacing: 0.5,
-    marginVertical: 0,
-    paddingVertical: 0,
+    color: '#666',
+    textTransform: 'capitalize',
   },
-  activeFilterButtonLabel: {
-    color: 'white',
+  metaSeparator: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E0E0E0',
+    marginHorizontal: 6,
+  },
+  urgencyText: {
+    fontSize: 12,
     fontWeight: '500',
+    textTransform: 'uppercase',
+  },
+  menuButton: {
+    margin: 0,
+    marginTop: -8,
+    marginRight: -8,
+  },
+  issueDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  issueFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatar: {
+    marginRight: 8,
+  },
+  userName: {
+    fontSize: 13,
+    color: '#555',
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#999',
   },
   loadingContainer: {
     flex: 1,
@@ -792,104 +902,49 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 32,
+    marginTop: 60,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#666',
+    marginTop: 16,
   },
   emptyText: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 14,
+    color: '#999',
     textAlign: 'center',
+    marginTop: 8,
+    maxWidth: 240,
+  },
+  clearButton: {
     marginTop: 16,
-    marginBottom: 24,
-  },
-  clearFiltersButton: {
-    marginTop: 12,
-  },
-  listContainer: {
+    paddingVertical: 8,
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 20,
   },
-  card: {
-    marginBottom: 12,
-    borderRadius: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    overflow: 'hidden',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  titleContainer: {
-    flex: 1,
-    marginRight: 8,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    letterSpacing: 0.2,
-  },
-  noteIcon: {
-    margin: 0,
-    padding: 0,
-  },
-  chipContainer: {
-    flexDirection: 'row',
-    marginTop: 8,
-    flexWrap: 'wrap',
-  },
-  statusChip: {
-    height: 28,
-    marginRight: 8,
-    marginBottom: 4,
-    borderRadius: 14,
-  },
-  urgencyChip: {
-    height: 28,
-    borderRadius: 14,
-    marginBottom: 4,
-  },
-  userInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  userAvatar: {
-    marginRight: 8,
-  },
-  reporterInfo: {
-    fontSize: 14,
-    color: '#555',
-    flex: 1,
-  },
-  dateInfo: {
-    fontSize: 12,
-    color: '#888',
-  },
-  description: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 8,
-    lineHeight: 20,
-  },
-  viewMoreText: {
-    fontSize: 13,
-    color: '#9C27B0',
-    marginTop: 8,
-    textAlign: 'right',
+  clearButtonText: {
+    color: '#6A1B9A',
     fontWeight: '500',
+    fontSize: 14,
+  },
+  menuContent: {
+    borderRadius: 12,
+    padding: 4,
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: '#EEEEEE',
+    marginVertical: 4,
   },
   modalContainer: {
     backgroundColor: 'white',
@@ -901,15 +956,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 8,
+    overflow: 'hidden',
   },
   modalScrollView: {
-    padding: 16,
+    padding: 20,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   modalTitleContainer: {
     flex: 1,
@@ -922,7 +978,7 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     marginBottom: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     elevation: 1,
   },
   sectionTitle: {
@@ -934,7 +990,7 @@ const styles = StyleSheet.create({
   reporterDetailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   reporterDetailText: {
     fontSize: 14,
@@ -944,7 +1000,7 @@ const styles = StyleSheet.create({
   descriptionDetailText: {
     fontSize: 14,
     color: '#666',
-    lineHeight: 20,
+    lineHeight: 22,
   },
   actionButtonsContainer: {
     marginTop: 8,
@@ -953,12 +1009,14 @@ const styles = StyleSheet.create({
   actionButton: {
     marginBottom: 12,
     borderRadius: 8,
+    elevation: 0,
   },
   noteModalContainer: {
     backgroundColor: 'white',
-    padding: 20,
+    padding: 24,
     margin: 20,
-    borderRadius: 16,
+    borderRadius: 20,
+    elevation: 8,
   },
   noteModalTitle: {
     fontSize: 18,
@@ -967,8 +1025,9 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   noteInput: {
-    backgroundColor: '#f9f9f9',
-    marginBottom: 16,
+    backgroundColor: '#F9F9F9',
+    marginBottom: 20,
+    borderRadius: 8,
   },
   noteModalButtons: {
     flexDirection: 'row',
