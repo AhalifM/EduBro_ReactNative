@@ -217,19 +217,21 @@ const RegisterScreen = ({ navigation }) => {
             ]}
             onPress={() => setRole('student')}
           >
-            <MaterialIcons
-              name="school"
-              size={24}
-              color={role === 'student' ? '#FFFFFF' : '#9C27B0'}
-            />
-            <Text
-              style={[
-                styles.roleText,
-                role === 'student' && styles.roleTextSelected
-              ]}
-            >
-              Student
-            </Text>
+            <View style={styles.roleContentContainer}>
+              <MaterialIcons
+                name="school"
+                size={24}
+                color={role === 'student' ? '#FFFFFF' : '#9C27B0'}
+              />
+              <Text
+                style={[
+                  styles.roleText,
+                  role === 'student' && styles.roleTextSelected
+                ]}
+              >
+                Student
+              </Text>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -239,19 +241,21 @@ const RegisterScreen = ({ navigation }) => {
             ]}
             onPress={() => setRole('tutor')}
           >
-            <MaterialIcons
-              name="assignment"
-              size={24}
-              color={role === 'tutor' ? '#FFFFFF' : '#9C27B0'}
-            />
-            <Text
-              style={[
-                styles.roleText,
-                role === 'tutor' && styles.roleTextSelected
-              ]}
-            >
-              Tutor
-            </Text>
+            <View style={styles.roleContentContainer}>
+              <MaterialIcons
+                name="assignment"
+                size={24}
+                color={role === 'tutor' ? '#FFFFFF' : '#9C27B0'}
+              />
+              <Text
+                style={[
+                  styles.roleText,
+                  role === 'tutor' && styles.roleTextSelected
+                ]}
+              >
+                Tutor
+              </Text>
+            </View>
           </TouchableOpacity>
           
           {adminModeEnabled && (
@@ -262,19 +266,21 @@ const RegisterScreen = ({ navigation }) => {
               ]}
               onPress={() => setRole('admin')}
             >
-              <MaterialIcons
-                name="admin-panel-settings"
-                size={24}
-                color={role === 'admin' ? '#FFFFFF' : '#9C27B0'}
-              />
-              <Text
-                style={[
-                  styles.roleText,
-                  role === 'admin' && styles.roleTextSelected
-                ]}
-              >
-                Admin
-              </Text>
+              <View style={styles.roleContentContainer}>
+                <MaterialIcons
+                  name="admin-panel-settings"
+                  size={24}
+                  color={role === 'admin' ? '#FFFFFF' : '#9C27B0'}
+                />
+                <Text
+                  style={[
+                    styles.roleText,
+                    role === 'admin' && styles.roleTextSelected
+                  ]}
+                >
+                  Admin
+                </Text>
+              </View>
             </TouchableOpacity>
           )}
         </View>
@@ -403,22 +409,28 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   roleOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 8,
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#ccc',
     width: '30%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  roleContentContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   roleOptionSelected: {
     backgroundColor: '#9C27B0',
     borderColor: '#9C27B0',
   },
   roleText: {
-    marginLeft: 8,
+    marginTop: 8,
     fontSize: 16,
+    textAlign: 'center',
   },
   roleTextSelected: {
     color: '#FFFFFF',

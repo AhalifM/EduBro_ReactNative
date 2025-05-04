@@ -70,6 +70,11 @@ const LoginScreen = ({ navigation, route }) => {
     }
   };
 
+  const fillTestCredentials = (testEmail, testPassword) => {
+    setEmail(testEmail);
+    setPassword(testPassword);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
@@ -102,6 +107,31 @@ const LoginScreen = ({ navigation, route }) => {
             />
           }
         />
+        
+        <Text style={styles.testCredentialsTitle}>Test Credentials</Text>
+        <View style={styles.testButtonsContainer}>
+          <Button
+            mode="outlined"
+            onPress={() => fillTestCredentials('alifmasdar33@gmail.comw', '123123')}
+            style={styles.testButton}
+          >
+            Admin
+          </Button>
+          <Button
+            mode="outlined"
+            onPress={() => fillTestCredentials('alifmasdar33@gmail.comz', '123123')}
+            style={styles.testButton}
+          >
+            Tutor
+          </Button>
+          <Button
+            mode="outlined"
+            onPress={() => fillTestCredentials('alifmasdar33@gmail.com', '123123')}
+            style={styles.testButton}
+          >
+            Student
+          </Button>
+        </View>
         
         <Button
           mode="contained"
@@ -170,6 +200,21 @@ const styles = StyleSheet.create({
     color: 'green',
     textAlign: 'center',
     marginBottom: 16,
+  },
+  testCredentialsTitle: {
+    textAlign: 'center',
+    marginVertical: 8,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  testButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  testButton: {
+    flex: 1,
+    marginHorizontal: 4,
   },
 });
 

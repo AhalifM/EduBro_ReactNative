@@ -417,14 +417,10 @@ const ManageUsersScreen = () => {
   const renderGrowthCards = () => (
     <View style={styles.growthContainer}>
       <Card style={[styles.growthCard, { backgroundColor: '#E3F2FD' }]}>
-        <Card.Content>
-          <View style={styles.growthCardContent}>
-            <MaterialIcons name="trending-up" size={40} color="#2196F3" />
-            <View style={styles.growthTextContainer}>
-              <Text style={styles.growthValue}>{stats.newUsersThisWeek}</Text>
-              <Text style={styles.growthLabel}>New users this week</Text>
-            </View>
-          </View>
+        <Card.Content style={styles.growthCardContentWrapper}>
+          <MaterialIcons name="trending-up" size={24} color="#2196F3" style={styles.statIcon} />
+          <Text style={styles.growthTitle}>New users this week</Text>
+          <Text style={styles.growthValue}>{stats.newUsersThisWeek}</Text>
           {stats.newUsersLastWeek > 0 && (
             <Text style={[
               styles.growthCompare, 
@@ -439,15 +435,11 @@ const ManageUsersScreen = () => {
       </Card>
       
       <Card style={[styles.growthCard, { backgroundColor: '#E8F5E9' }]}>
-        <Card.Content>
-          <View style={styles.growthCardContent}>
-            <MaterialIcons name="verified-user" size={40} color="#4CAF50" />
-            <View style={styles.growthTextContainer}>
-              <Text style={styles.growthValue}>{stats.activeUsers}</Text>
-              <Text style={styles.growthLabel}>Active users</Text>
-            </View>
-          </View>
-          {stats.totalUsers > 0 && (
+        <Card.Content style={styles.growthCardContentWrapper}>
+          <MaterialIcons name="verified-user" size={24} color="#4CAF50" style={styles.statIcon} />
+          <Text style={styles.growthTitle}>Active users</Text>
+          <Text style={styles.growthValue}>{stats.activeUsers}</Text>
+          {stats.totalUsers > 0 && stats.activeUsers > 0 && (
             <Text style={styles.growthCompare}>
               {Math.round(stats.activeUsers / stats.totalUsers * 100)}% of all users
             </Text>
@@ -508,7 +500,7 @@ const ManageUsersScreen = () => {
   }
   
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>User Management</Text>
         <IconButton
@@ -603,6 +595,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+    paddingTop: 0,
   },
   header: {
     flexDirection: 'row',
@@ -612,6 +605,7 @@ const styles = StyleSheet.create({
     height: 56,
     backgroundColor: '#FFFFFF',
     elevation: 2,
+    marginTop: 0,
   },
   headerTitle: {
     fontSize: 20,
@@ -674,6 +668,7 @@ const styles = StyleSheet.create({
   },
   growthContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     padding: 8,
     paddingTop: 0,
@@ -684,25 +679,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     elevation: 2,
   },
-  growthCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  growthCardContentWrapper: {
+    padding: 16,
   },
-  growthTextContainer: {
-    marginLeft: 12,
+  growthTitle: {
+    color: '#333333',
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
   },
   growthValue: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#333333',
   },
-  growthLabel: {
-    fontSize: 12,
-    color: '#666666',
-  },
   growthCompare: {
     fontSize: 12,
-    marginTop: 8,
+    marginTop: 4,
     color: '#666666',
   },
   chartCard: {
